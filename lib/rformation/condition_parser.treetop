@@ -1,0 +1,100 @@
+grammar Condition
+  rule root
+    ospace condition ospace {
+      def to_js(em)
+        obs, exp = condition.to_js(em)
+        [obs.keys, exp]
+      end
+    }
+  end
+  rule condition
+    or_condition  
+  end
+  rule or_condition
+    and_condition space "or" space or_condition {
+      def to_js(em)
+        obs1, exp1 = and_condition.to_js(em)
+        obs2, exp2 = or_condition.to_js(em)
+        [obs1.merge(obs2), '(%s) || (%s)' % [exp1, exp2]]
+      end
+    } / and_condition
+  end
+  rule and_condition
+    atomic_condition space "and" space and_condition {
+      def to_js(em)
+        obs1, exp1 = *atomic_condition.to_js(em)
+        obs2, exp2 = *and_condition.to_js(em)
+        [obs1.merge(obs2), '(%s) && (%s)' % [exp1, exp2]]
+      end
+    } / atomic_condition
+  end
+  rule atomic_condition
+    "(" ospace condition ospace ")" { def to_js(em) ; condition.to_js(em) ; end } /
+    "not" ospace "(" ospace condition ospace ")" {
+      def to_js(em)
+        obs, exp = *condition.to_js
+        [obj, '!(%s)' % exp]
+      end
+    } /
+    f:any_value space "equals" space v:any_value {
+      def to_js(em)
+        id = em[f.to_js_identifier][1]
+        [{ id => true }, "#{id}[#{id}.selectedIndex].value == #{v.to_js_string}"]
+      end
+    } /
+    f:any_value space "not" space "equals" space v:any_value {
+      def to_js(em)
+        id = em[f.to_js_identifier][1]
+        [{ id => true }, "#{id}[#{id}.selectedIndex].value != #{v.to_js_string}"]
+      end
+    } /
+    any_value space "is" space "on" {
+      def to_js(em)
+        id = em[any_value.to_js_identifier][1]
+        [{ id => true }, "#{id}.checked"]
+      end
+    } /
+    any_value space "is" space "off" {
+      def to_js(em)
+        id = em[any_value.to_js_identifier][1]
+        [{ id => true }, "!#{id}.checked"]
+      end
+    }
+  end
+  rule any_value
+    [^ \t\n\r\f()'"`#]+ {
+      def to_js_identifier ; text_value ; end
+      def to_js_string ; text_value.inspect ; end
+    }
+    / '"' ([^\\"] / "\\" .)* '"' {
+      def to_js_identifier
+        raise RFormation::FormError, "id expected"
+      end
+      def to_js_string
+        convert_string_syntax(text_value).inspect
+      end
+    }
+    / "'" ([^\\'] / "\\" .)* "'" {
+      def to_js_identifier
+        raise RFormation::FormError, "id expected"
+      end
+      def to_js_string
+        convert_string_syntax(text_value).inspect
+      end
+    }
+    / "`" ([^\\`] / "\\" .)* "`" {
+      def to_js_identifier
+        convert_string_syntax(text_value)
+      end
+      def to_js_string
+        raise RFormation::FormError, "string expected"
+      end
+    }
+  end
+  rule space
+    ([ \t\n\r\f] / "#" [^\n]*)+
+  end
+  rule ospace
+    space?
+  end
+end
