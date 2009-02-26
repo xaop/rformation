@@ -1,0 +1,295 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<html>
+  <head>
+    <title>RFormation Reference</title>
+    <style type="text/css">
+      body {
+        font-family:arial,tahoma,helvetica,sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>
+      RFormation Reference
+    </h1>
+    <h2>
+      General
+    </h2>
+    <h3>
+      Comments
+    </h3>
+    <p>
+      Comments are started with a pound symbol (<code>#</code>) and run up to the end of the line. These comments are discarded and do not form part of the definition of the form. They can be used to add notes or to comment out parts of the form that you want to temporarily remove from the form as the user sees it.
+    </p>
+    <h3>
+      Input field names versus labels
+    </h3>
+    <p>
+      Many of the inputs can have both a name and a label. The label is what will be displayed next to the input field. The name is what is seen by the server when the form is submitted. This allows you to provide user-friendly labels for the users and still adhere to whatever it is that the server expects. The label is optional and defaults to the name.
+    </p>
+    <p>
+      The label is specified inside the declaration of the field. For instance definition of the text field example from the previous paragraph looks as follows:
+    </p>
+    <pre>
+  text "comment" do
+    label "A comment" 
+  end
+</pre>
+    <p>
+      If the label is the same as the name of the field, you can leave it out, like this:
+    </p>
+    <pre>
+  text "comment" do
+  end
+</pre>
+    <p>
+      This will use <code>"comment"</code> as label.
+    </p>
+    <h3>
+      Options
+    </h3>
+    <p>
+      Some of the definitions take options. These options always start with a colon (<code>:</code>) so they are easily identifiable.
+    </p>
+    <h2>
+      Types of input fields
+    </h2>
+    <h3>
+      Info field
+    </h3>
+    <p>
+      Info fields are meant to provide information to the user about how he or she needs to fill out the form. These fields have no other significance.
+    </p>
+    <p>
+      An info field is defined as follows
+    </p>
+    <pre>
+  info "useful information for the user" 
+</pre>
+    <p>
+      This field currently has no options.
+    </p>
+    <h3>
+      Text fields
+    </h3>
+    <p>
+      A text field can be used to accept arbitrary input from the user. The definition starts with the <code>text</code> keyword and goes as follows:
+    </p>
+    <pre>
+  text "name of field" do
+    # options, e.g., label
+  end
+</pre>
+    <p>
+      The block is optional, meaning that you can just use this form:
+    </p>
+    <pre>
+  text "name of field" 
+</pre>
+    <p>
+      Of course, if you want to specify a label different from the name as explained in an earlier section, than you need to use the <code>do</code>-<code>end</code> version:
+    </p>
+    <pre>
+  text "name of field" do
+    label "a descriptive label" 
+  end
+</pre>
+    <p>
+      The previous definitions generate a one-line text field. A multi-line text field is defined by adding the <code>:multi</code> option like this:
+    </p>
+    <pre>
+  text "name of field", :multi
+</pre>
+    <p>
+      This version also has a <code>do</code>-<code>end</code> version if needed for specifying a label.
+    </p>
+    <h3>
+      Checkboxes
+    </h3>
+    <p>
+      A checkbox is used for simple options with a yes or no answer. A checkbox is declared using the <code>box</code> keyword as follows
+    </p>
+    <pre>
+  box "name of field" do
+    # options, e.g., label
+  end
+</pre>
+    <p>
+      As with text fields the <code>do</code>-<code>end</code> is optional, unless you want to specify a label different from the name of the checkbox. A checkbox is unchecked by default. You can specify that it needs to be checked by default as follows:
+    </p>
+    <pre>
+  box "name of field" do
+    # options, e.g., label
+    default on
+  end
+</pre>
+    <p>
+      You can also explicitly say that the checkbox by default should be unchecked using <code>off</code> instead of <code>on</code>. This is mostly useless.
+    </p>
+    <h3>
+      File upload
+    </h3>
+    <p>
+      File uploads can be specified using the <code>file</code> keyword as follows
+    </p>
+    <pre>
+  file "name of field" do
+    # options, e.g., label
+  end
+</pre>
+    <p>
+      The <code>do</code>-<code>end</code> part is optional unless you want to specify a label different from the name of the input field.
+    </p>
+    <p>
+      <i>This field is likely to gain some extra options over time to limit the size of the upload and the type.</i>
+    </p>
+    <h3>
+      Dropdown selects and radio button selects
+    </h3>
+    <p>
+      Selection from a fixed set of options can be done using a drop-down select box, or a set of radio buttons. Both have exactly the same options, they just start with a different keyword.
+    </p>
+    <p>
+      Specification of a drop-down box starts with the <code>select</code> keyword and looks as follows
+    </p>
+    <pre>
+  select "name of option" do
+    # options, e.g., label and values
+  end
+</pre>
+    <p>
+      Specification of a set of radio buttons starts with the <code>radio</code> keyword instead:
+    </p>
+    <pre>
+  radio "name of option" do
+    # options, e.g., label and values
+  end
+</pre>
+    <p>
+      This different in keyword is the only different between both definitions.
+    </p>
+    <p>
+      To populate the drop-down box or the radio button list, we need to specify values for it. As with input fields in general, there is a difference between the value that the user sees and the value submitted to the server, i.e., between the label of the option and its name.
+    </p>
+    <p>
+      These easiest option is by using a pre-defined list of values. This is done using the <code>values</code> keyword.
+    </p>
+    <pre>
+  radio "name of option" do
+    # options, e.g., label and values
+    values "name of the list" 
+  end
+</pre>
+    <p>
+      In this case, the labels and names of the options are specified by the list of values and you need not worry about this. If you want to specify the list yourself, you can use the <code>value</code> keyword (singular) for this. If you do not specify otherwise, the label and the name of the options are exactly the same. An example goes as follows:
+    </p>
+    <pre>
+  radio "name of option" do
+    # options, e.g., label and values
+    value "a good value" 
+    value "a bad value" 
+    value "an ugly value" 
+    # ...
+  end
+</pre>
+    <p>
+      If you want to have the options auto-numbered, i.e., just specify the labels but have the names be 1, 2, etc, than use the <code>:auto_number</code> option:
+    </p>
+    <pre>
+  radio "name of option", :auto_number do
+    # options, e.g., label and values
+    value "a good value" 
+    value "a bad value" 
+    value "an ugly value" 
+    # ...
+  end
+</pre>
+    <p>
+      Now, the option labeled <code>"a good value"</code> will have 1 as name, the one labeled <code>"a bad value"</code> will have 2 as name, etc. If you want full control, you can use the <code>:self</code> option to say that you want to specify the names yourself:
+    </p>
+    <pre>
+  radio "name of option", :auto_number do
+    # options, e.g., label and values
+    value "a good value", "good" 
+    value "a bad value", "bad" 
+    value "an ugly value", "ugly" 
+    # ...
+  end
+</pre>
+    <p>
+      This is useful if you want the options displayed differently by the user than by the server. Finally, you can specify which of the values should be chosen by default. This is done by passing the <code>:default</code> option to the value definitions:
+    </p>
+    <pre>
+  radio "name of option", :self do
+    # options, e.g., label and values
+    value "a good value", "good" 
+    value "a bad value", "bad", :default
+    value "an ugly value", "ugly" 
+    # ...
+  end
+</pre>
+    <p>
+      Now, <code>"a bad value"</code> will be selected by default.
+    </p>
+    <h2>
+      Grouping constructs
+    </h2>
+    <h3>
+      Group of input fields
+    </h3>
+    <p>
+      You can specified a group of input fields with a caption using the <code>group</code> keyword:
+    </p>
+    <pre>
+  group "A caption" do
+    # Other field definitions
+  end
+</pre>
+    <p>
+      Inside the <code>do</code>-<code>end</code>, you can define the input fields that should be shown as part of the group. Any input field, including grouping constructs, can be used inside the <code>do</code>-<code>end</code>.
+    </p>
+    <h3>
+      Condition display of input fields
+    </h3>
+    <p>
+      Sometimes it is useful to only display certain input fields if other input fields have specific values. This can be achieved using the <code>condition</code> keyword:
+    </p>
+    <pre>
+  condition "some condition" do
+    # Other field definitions
+  end
+</pre>
+    <p>
+      The fields inside the <code>do</code>-<code>end</code> are only displayed when the condition is true. Again, any input field including grouping constructs can appear inside the <code>do</code>-<code>end</code>.
+    </p>
+    <p>
+      The condition can refer to the value of the input fields. This is done by using their name. If the name of the element contains spaces, parentheses or quotes (<code>"</code>, <code>'</code>, or <code>`</code>), you should use <code>`</code> (backtick) to escape the name, e.g., <code>`a name with spaces (and parentheses)`</code>.
+    </p>
+    <p>
+      The condition can refer to direct values. These values can be typed without escaping if the value does not contain spaces, parentheses or quotes, just like with names of input fields. Otherwise, you need to escape the value with either single or double quotes (<code>'</code> or <code>"</code>).
+    </p>
+    <p>
+      Currently, the conditions can have these forms:
+    </p>
+    <ul>
+      <li>
+        <code>element equals value</code> : is true if and only if the element has the given value. For text fields this means that the text input by the user is equal to <code>value</code>, for selection fields it means that <code>value</code> should be the selected value. This construct cannot be used for checkboxes or file upload fields.
+      </li>
+      <li>
+        <code>element is on</code>, <code>element is off</code> : is true if the checkbox is selected, false otherwise. Is only used for checkboxes.
+      </li>
+      <li>
+        <code>condition1 and condition2</code> : true if and only if both conditions are true.
+      </li>
+      <li>
+        <code>condition1 or condition2</code> : true if and only if one of both conditions is true.
+      </li>
+      <li>
+        <code>not (condition)</code> : true if and only if <code>condition</code> is not true.
+      </li>
+      <li>
+        <code>(condition)</code> : grouping construct.
+      </li>
+    </ul>
+  </body>
+</html>

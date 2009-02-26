@@ -73,6 +73,9 @@ END
 
 File.open("/tmp/form.html", "w") do |f|
   f.puts '<html><head><LINK REL=StyleSheet HREF="test.css" TYPE="text/css" MEDIA=screen></head><body>'
-  f << form.to_html(:lists_of_values => value_generator)
+  f << form.to_html(:lists_of_values => value_generator, :data => {
+    "abcd" => 'filled out text',
+    'frequent_traveller' => 'nope'
+  })
   f.puts '</body>'
 end

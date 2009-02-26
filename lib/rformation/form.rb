@@ -162,51 +162,59 @@ module RFormation
       @type = type
       case type
       when :auto_number
-        def self.values ; raise FormError, "specified auto numbering so cannot use this option" ; end
-      when :auto_id
-        def self.values ; raise FormError, "specified auto numbering so cannot use this option" ; end
+        def self.values ; raise FormError, "using user-defined naming so cannot use this option" ; end
         def self.value(label, *a)
           default = a.delete(:default)
           raise FormError, "unknown options #{a.inspect}" unless a.empty?
-          id = label.downcase.gsub(/[^A-Za-z0-9_-]/, '_')
+          id = (@entries.size + 1).to_s
           @entries << [id, label, default]
           raise FormError, "two defaults specified" if @default && default
           @default ||= default
         end
-      when :self
-        def self.values ; raise FormError, "specified auto numbering so cannot use this option" ; end
-        def self.value(id, label, *a)
+      when :identity, nil
+        if type == :identity
+          def self.values ; raise FormError, "using user-defined naming so cannot use this option" ; end
+        else
+          def self.values(generator)
+            @generator = generator
+            @lists_of_values[generator] or raise FormError, "list of values named #{generator} not found"
+            def self.values ; raise FormError, "specified a list of values twice" ; end
+            def self.value(*a) ; raise FormError, "using pre-defined list of values so cannot use this option" ; end
+          end
+        end
+        def self.value(label, *a)
           default = a.delete(:default)
           raise FormError, "unknown options #{a.inspect}" unless a.empty?
-          @entries << [id, label]
+          @entries << [label, label, !!default]
+          raise FormError, "two defaults specified" if @default && default
+          @default ||= default
+          def self.values ; raise FormError, "using user-defined naming so cannot use this option" ; end
+        end
+      when :auto_id
+        def self.values ; raise FormError, "specified user-defined naming so cannot use this option" ; end
+        def self.value(label, *a)
+          default = a.delete(:default)
+          raise FormError, "unknown options #{a.inspect}" unless a.empty?
+          id = label.downcase.gsub(/[^A-Za-z0-9_-]/, '_')
+          @entries << [id, label, !!default]
           raise FormError, "two defaults specified" if @default && default
           @default ||= default
         end
-      when nil
+      when :self
+        def self.values ; raise FormError, "specified user-defined naming so cannot use this option" ; end
+        def self.value(label, id, *a)
+          default = a.delete(:default)
+          raise FormError, "unknown options #{a.inspect}" unless a.empty?
+          @entries << [id, label, !!default]
+          raise FormError, "two defaults specified" if @default && default
+          @default ||= default
+        end
       else
         raise FormError, "illegal specifier #{type.inspect} for id generation (should be one of :auto_number, :auto_id, :self)"
       end
       super(lists_of_values, parent, &blk)
     end
     
-    def values(generator)
-      @generator = generator
-      @lists_of_values[generator] or raise FormError, "list of values named #{generator} not found"
-      def self.values ; raise FormError, "specified a list of values twice" ; end
-      def self.value(*a) ; raise FormError, "cannot both define explicit values and use a predefined list of values" ; end
-    end
-    
-    # The auto_numbering form
-    def value(label, *a)
-      default = a.delete(:default)
-      raise FormError, "unknown options #{a.inspect}" unless a.empty?
-      id = (@entries.size + 1).to_s
-      @entries << [id, label, default]
-      raise FormError, "two defaults specified" if @default && default
-      @default ||= default
-      def self.values(*a) ; raise FormError, "cannot both define explicit values and use a predefined list of values" ; end unless @type
-    end
-
     def entries(lists_of_values)
       (@generator ? lists_of_values[@generator] : @entries) or raise FormError, "list of values named #{@generator} not found"
     end

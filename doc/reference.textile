@@ -1,0 +1,250 @@
+h1. RFormation Reference
+
+h2. General
+
+h3. Comments
+
+Comments are started with a pound symbol (@#@) and run up to the end of the line. These
+comments are discarded and do not form part of the definition of the form. They can be
+used to add notes or to comment out parts of the form that you want to temporarily
+remove from the form as the user sees it.
+
+h3. Input field names versus labels
+
+Many of the inputs can have both a name and a label. The label is what will be displayed
+next to the input field. The name is what is seen by the server when the form is
+submitted. This allows you to provide user-friendly labels for the users and still
+adhere to whatever it is that the server expects. The label is optional and defaults
+to the name.
+
+The label is specified inside the declaration of the field. For instance definition of
+the text field example from the previous paragraph looks as follows:
+<pre>
+  text "comment" do
+    label "A comment"
+  end
+</pre>
+If the label is the same as the name of the field, you can leave it out, like this:
+<pre>
+  text "comment" do
+  end
+</pre>
+This will use @"comment"@ as label.
+
+h3. Options
+
+Some of the definitions take options. These options always start with a colon (@:@) so
+they are easily identifiable.
+
+h2. Types of input fields
+
+h3. Info field
+
+Info fields are meant to provide information to the user about how he or she needs
+to fill out the form. These fields have no other significance.
+
+An info field is defined as follows
+<pre>
+  info "useful information for the user"
+</pre>
+This field currently has no options.
+
+h3. Text fields
+
+A text field can be used to accept arbitrary input from the user. The definition starts with
+the @text@ keyword and goes
+as follows:
+<pre>
+  text "name of field" do
+    # options, e.g., label
+  end
+</pre>
+The block is optional, meaning that you can just use this form:
+<pre>
+  text "name of field"
+</pre>
+Of course, if you want to specify a label different from the name as explained
+in an earlier section, than you need to use the @do@-@end@ version:
+<pre>
+  text "name of field" do
+    label "a descriptive label"
+  end
+</pre>
+
+The previous definitions generate a one-line text field. A multi-line text field
+is defined by adding the @:multi@ option like this:
+<pre>
+  text "name of field", :multi
+</pre>
+This version also has a @do@-@end@ version if needed for specifying a label.
+
+h3. Checkboxes
+
+A checkbox is used for simple options with a yes or no answer. A checkbox
+is declared using the @box@ keyword as follows
+<pre>
+  box "name of field" do
+    # options, e.g., label
+  end
+</pre>
+As with text fields the @do@-@end@ is optional, unless you want to specify a
+label different from the name of the checkbox.
+
+A checkbox is unchecked by default. You can specify that it needs to be checked
+by default as follows:
+<pre>
+  box "name of field" do
+    # options, e.g., label
+    default on
+  end
+</pre>
+You can also explicitly say that the checkbox by default should be unchecked using
+@off@ instead of @on@. This is mostly useless.
+
+h3. File upload
+
+File uploads can be specified using the @file@ keyword as follows
+<pre>
+  file "name of field" do
+    # options, e.g., label
+  end
+</pre>
+The @do@-@end@ part is optional unless you want to specify a label different
+from the name of the input field.
+
+__This field is likely to gain some extra options over time to limit the size
+of the upload and the type.__
+
+h3. Dropdown selects and radio button selects
+
+Selection from a fixed set of options can be done using a drop-down select box, or a set of radio buttons.
+Both have exactly the same options, they just start with a different keyword.
+
+Specification of a drop-down box starts with the @select@ keyword and looks as follows
+<pre>
+  select "name of option" do
+    # options, e.g., label and values
+  end
+</pre>
+Specification of a set of radio buttons starts with the @radio@ keyword instead:
+<pre>
+  radio "name of option" do
+    # options, e.g., label and values
+  end
+</pre>
+This different in keyword is the only different between both definitions.
+
+To populate the drop-down box or the radio button list, we need to specify values for it.
+As with input fields in general, there is a difference between the value that the user
+sees and the value submitted to the server, i.e., between the label of the option and its
+name.
+
+These easiest option is by using a pre-defined list of values. This is done using
+the @values@ keyword.
+<pre>
+  radio "name of option" do
+    # options, e.g., label and values
+    values "name of the list"
+  end
+</pre>
+In this case, the labels and names of the options are specified by the list of values
+and you need not worry about this.
+
+If you want to specify the list yourself, you can use the @value@ keyword (singular) for this.
+If you do not specify otherwise, the label and the name of the options are exactly the same.
+An example goes as follows:
+<pre>
+  radio "name of option" do
+    # options, e.g., label and values
+    value "a good value"
+    value "a bad value"
+    value "an ugly value"
+    # ...
+  end
+</pre>
+
+If you want to have the options auto-numbered, i.e., just specify the labels but have the
+names be 1, 2, etc, than use the @:auto_number@ option:
+<pre>
+  radio "name of option", :auto_number do
+    # options, e.g., label and values
+    value "a good value"
+    value "a bad value"
+    value "an ugly value"
+    # ...
+  end
+</pre>
+Now, the option labeled @"a good value"@ will have 1 as name, the one labeled @"a bad value"@
+will have 2 as name, etc.
+
+If you want full control, you can use the @:self@ option to say that you want to specify
+the names yourself:
+<pre>
+  radio "name of option", :auto_number do
+    # options, e.g., label and values
+    value "a good value", "good"
+    value "a bad value", "bad"
+    value "an ugly value", "ugly"
+    # ...
+  end
+</pre>
+This is useful if you want the options displayed differently by the user than by the
+server.
+
+Finally, you can specify which of the values should be chosen by default. This is done
+by passing the @:default@ option to the value definitions:
+<pre>
+  radio "name of option", :self do
+    # options, e.g., label and values
+    value "a good value", "good"
+    value "a bad value", "bad", :default
+    value "an ugly value", "ugly"
+    # ...
+  end
+</pre>
+Now, @"a bad value"@ will be selected by default.
+
+h2. Grouping constructs
+
+h3. Group of input fields
+
+You can specified a group of input fields with a caption using the @group@ keyword:
+<pre>
+  group "A caption" do
+    # Other field definitions
+  end
+</pre>
+Inside the @do@-@end@, you can define the input fields that should be shown as part of the group.
+Any input field, including grouping constructs, can be used inside the @do@-@end@.
+
+h3. Condition display of input fields
+
+Sometimes it is useful to only display certain input fields if other input fields have specific
+values. This can be achieved using the @condition@ keyword:
+<pre>
+  condition "some condition" do
+    # Other field definitions
+  end
+</pre>
+The fields inside the @do@-@end@ are only displayed when the condition is true. Again, any input field
+including grouping constructs can appear inside the @do@-@end@.
+
+The condition can refer to the value of the input fields. This is done by using their name.
+If the name of the element contains spaces, parentheses or quotes (@"@, @'@, or @`@), you should
+use @`@ (backtick) to escape the name, e.g., @`a name with spaces (and parentheses)`@.
+
+The condition can refer to direct values. These values can be typed without escaping if the
+value does not contain spaces, parentheses or quotes, just like with names of input fields.
+Otherwise, you need to escape the value with either single or double quotes (@'@ or @"@).
+
+Currently, the conditions can have these forms:
+* @element equals value@ : is true if and only if the element has the given value. For
+  text fields this means that the text input by the user is equal to @value@, for selection fields
+  it means that @value@ should be the selected value. This construct cannot be used for
+  checkboxes or file upload fields.
+* @element is on@, @element is off@ : is true if the checkbox is selected, false otherwise.
+  Is only used for checkboxes.
+* @condition1 and condition2@ : true if and only if both conditions are true.
+* @condition1 or condition2@ : true if and only if one of both conditions is true.
+* @not (condition)@ : true if and only if @condition@ is not true.
+* @(condition)@ : grouping construct.

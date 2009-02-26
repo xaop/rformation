@@ -42,12 +42,14 @@ module RFormation
     end
     
     def setup_for_element(id, name, el2actor)
-      <<-END
-        var #{name} = document.getElementById(#{id.inspect});
-        #{name}.onchange = function() {
-          #{el2actor.map { |actor| "update_#{actor}(); " }}
-        }
-      END
+      unless el2actor.empty?
+        <<-END
+          var #{name} = document.getElementById(#{id.inspect});
+          #{name}.onchange = function() {
+            #{el2actor.map { |actor| "update_#{actor}(); " }}
+          }
+        END
+      end
     end
     
     def setup_for_actor(id, exp)
@@ -82,10 +84,13 @@ module RFormation
   class DropdownSelect
     
     def to_html(list_of_values, data, actors)
+      selected = data[@name]
       H {%{
-        %label{ :for => @name }= h @label
+        %label.normal_label{ :for => @id }= h @label
         %select{ :name => @name, :id => @id }
           - entries(list_of_values).each do |id, label, default|
+            - if selected
+              - default = (id == selected)
             %option{ default ? { :selected => "selected" } : {}, :value => id }= label
       }}
     end
@@ -95,10 +100,17 @@ module RFormation
   class RadioSelect
     
     def to_html(list_of_values, data, actors)
+      selected = data[@name]
       H {%{
-        %label{ :for => @name }= h @label
-        - entries(list_of_values).each do |id, label, default|
-          %input{ default ? { :selected => "selected" } : {}, :type => 'radio', :value => id, :id => @id, :name => @name }= label
+        .radio_label= h @label
+        .radio_list
+          - entries(list_of_values).each_with_index do |(id, label, default), i|
+            - option_id = "%s_%d" % [@id, i]
+            - if selected
+              - default = (id == selected)
+            %div
+              %input{ default ? { :checked => "checked" } : {}, :type => 'radio', :value => id, :id => option_id, :name => @name }
+              %label.radio_option{ :for => option_id }= label
       }}
     end
 
@@ -108,7 +120,7 @@ module RFormation
     
     def to_html(list_of_values, data, actors)
       H {%{
-        %label{ :for => @name }= h @label
+        %label.normal_label{ :for => @id }= h @label
         %input{ :type => 'file', :id => @id, :name => @name }
       }}
     end
@@ -118,12 +130,13 @@ module RFormation
   class Text
     
     def to_html(list_of_values, data, actors)
+      value = data[@name] || @value
       H {%{
-        %label{ :for => @name }= h @label
+        %label.normal_label{ :for => @id }= h @label
         - if @multi
-          %textarea{ :id => @id, :name => @name }= h @value
+          %textarea{ :id => @id, :name => @name }= h value
         - else
-          %input{ :type => 'text', :id => @id, :name => @name, :value => @value }
+          %input{ :type => 'text', :id => @id, :name => @name, :value => value }
       }}
     end
     
@@ -142,9 +155,11 @@ module RFormation
   class CheckBox
     
     def to_html(list_of_values, data, actors)
+      on = @on_by_default
+      on = data[@name] if data.has_key?(@name)
       H {%{
-        %label{ :for => @name }= h @label
-        %input.boxes{ @on_by_default ? { :selected => "selected" } : {}, :type => 'checkbox', :id => @id, :name => @name }
+        %label.normal_label{ :for => @id }= h @label
+        %input.boxes{ on ? { :checked => "checked" } : {}, :type => 'checkbox', :id => @id, :name => @name }
       }}
     end
 
