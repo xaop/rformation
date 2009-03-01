@@ -19,13 +19,6 @@ module RFormation::Condition
     end
   end
 
-  module Root1
-    def to_js(em)
-      obs, exp = condition.to_js(em)
-      [obs.keys, exp]
-    end
-  end
-
   def _nt_root
     start_index = index
     if node_cache[:root].has_key?(index)
@@ -46,9 +39,8 @@ module RFormation::Condition
       end
     end
     if s0.last
-      r0 = (SyntaxNode).new(input, i0...index, s0)
+      r0 = (RFormation::ConditionAST::Root).new(input, i0...index, s0)
       r0.extend(Root0)
-      r0.extend(Root1)
     else
       self.index = i0
       r0 = nil
@@ -92,14 +84,6 @@ module RFormation::Condition
     end
   end
 
-  module OrCondition1
-    def to_js(em)
-      obs1, exp1 = and_condition.to_js(em)
-      obs2, exp2 = or_condition.to_js(em)
-      [obs1.merge(obs2), '(%s) || (%s)' % [exp1, exp2]]
-    end
-  end
-
   def _nt_or_condition
     start_index = index
     if node_cache[:or_condition].has_key?(index)
@@ -135,9 +119,8 @@ module RFormation::Condition
       end
     end
     if s1.last
-      r1 = (SyntaxNode).new(input, i1...index, s1)
+      r1 = (RFormation::ConditionAST::Or).new(input, i1...index, s1)
       r1.extend(OrCondition0)
-      r1.extend(OrCondition1)
     else
       self.index = i1
       r1 = nil
@@ -177,14 +160,6 @@ module RFormation::Condition
     end
   end
 
-  module AndCondition1
-    def to_js(em)
-      obs1, exp1 = *atomic_condition.to_js(em)
-      obs2, exp2 = *and_condition.to_js(em)
-      [obs1.merge(obs2), '(%s) && (%s)' % [exp1, exp2]]
-    end
-  end
-
   def _nt_and_condition
     start_index = index
     if node_cache[:and_condition].has_key?(index)
@@ -220,9 +195,8 @@ module RFormation::Condition
       end
     end
     if s1.last
-      r1 = (SyntaxNode).new(input, i1...index, s1)
+      r1 = (RFormation::ConditionAST::And).new(input, i1...index, s1)
       r1.extend(AndCondition0)
-      r1.extend(AndCondition1)
     else
       self.index = i1
       r1 = nil
@@ -260,10 +234,6 @@ module RFormation::Condition
   end
 
   module AtomicCondition1
-    def to_js(em) ; condition.to_js(em) ; end
-  end
-
-  module AtomicCondition2
     def ospace
       elements[1]
     end
@@ -282,14 +252,7 @@ module RFormation::Condition
 
   end
 
-  module AtomicCondition3
-    def to_js(em)
-      obs, exp = *condition.to_js
-      [obj, '!(%s)' % exp]
-    end
-  end
-
-  module AtomicCondition4
+  module AtomicCondition2
     def f
       elements[0]
     end
@@ -307,14 +270,7 @@ module RFormation::Condition
     end
   end
 
-  module AtomicCondition5
-    def to_js(em)
-      id = em[f.to_js_identifier][1]
-      [{ id => true }, "#{id}[#{id}.selectedIndex].value == #{v.to_js_string}"]
-    end
-  end
-
-  module AtomicCondition6
+  module AtomicCondition3
     def f
       elements[0]
     end
@@ -336,15 +292,8 @@ module RFormation::Condition
     end
   end
 
-  module AtomicCondition7
-    def to_js(em)
-      id = em[f.to_js_identifier][1]
-      [{ id => true }, "#{id}[#{id}.selectedIndex].value != #{v.to_js_string}"]
-    end
-  end
-
-  module AtomicCondition8
-    def any_value
+  module AtomicCondition4
+    def f
       elements[0]
     end
 
@@ -358,15 +307,8 @@ module RFormation::Condition
 
   end
 
-  module AtomicCondition9
-    def to_js(em)
-      id = em[any_value.to_js_identifier][1]
-      [{ id => true }, "#{id}.checked"]
-    end
-  end
-
-  module AtomicCondition10
-    def any_value
+  module AtomicCondition5
+    def f
       elements[0]
     end
 
@@ -378,13 +320,6 @@ module RFormation::Condition
       elements[3]
     end
 
-  end
-
-  module AtomicCondition11
-    def to_js(em)
-      id = em[any_value.to_js_identifier][1]
-      [{ id => true }, "!#{id}.checked"]
-    end
   end
 
   def _nt_atomic_condition
@@ -428,9 +363,8 @@ module RFormation::Condition
       end
     end
     if s1.last
-      r1 = (SyntaxNode).new(input, i1...index, s1)
+      r1 = (RFormation::ConditionAST::Parentheses).new(input, i1...index, s1)
       r1.extend(AtomicCondition0)
-      r1.extend(AtomicCondition1)
     else
       self.index = i1
       r1 = nil
@@ -484,9 +418,8 @@ module RFormation::Condition
         end
       end
       if s7.last
-        r7 = (SyntaxNode).new(input, i7...index, s7)
-        r7.extend(AtomicCondition2)
-        r7.extend(AtomicCondition3)
+        r7 = (RFormation::ConditionAST::Not).new(input, i7...index, s7)
+        r7.extend(AtomicCondition1)
       else
         self.index = i7
         r7 = nil
@@ -520,9 +453,8 @@ module RFormation::Condition
           end
         end
         if s15.last
-          r15 = (SyntaxNode).new(input, i15...index, s15)
-          r15.extend(AtomicCondition4)
-          r15.extend(AtomicCondition5)
+          r15 = (RFormation::ConditionAST::Equals).new(input, i15...index, s15)
+          r15.extend(AtomicCondition2)
         else
           self.index = i15
           r15 = nil
@@ -570,9 +502,8 @@ module RFormation::Condition
             end
           end
           if s21.last
-            r21 = (SyntaxNode).new(input, i21...index, s21)
-            r21.extend(AtomicCondition6)
-            r21.extend(AtomicCondition7)
+            r21 = (RFormation::ConditionAST::NotEquals).new(input, i21...index, s21)
+            r21.extend(AtomicCondition3)
           else
             self.index = i21
             r21 = nil
@@ -612,9 +543,8 @@ module RFormation::Condition
               end
             end
             if s29.last
-              r29 = (SyntaxNode).new(input, i29...index, s29)
-              r29.extend(AtomicCondition8)
-              r29.extend(AtomicCondition9)
+              r29 = (RFormation::ConditionAST::IsOn).new(input, i29...index, s29)
+              r29.extend(AtomicCondition4)
             else
               self.index = i29
               r29 = nil
@@ -654,9 +584,8 @@ module RFormation::Condition
                 end
               end
               if s35.last
-                r35 = (SyntaxNode).new(input, i35...index, s35)
-                r35.extend(AtomicCondition10)
-                r35.extend(AtomicCondition11)
+                r35 = (RFormation::ConditionAST::IsOff).new(input, i35...index, s35)
+                r35.extend(AtomicCondition5)
               else
                 self.index = i35
                 r35 = nil
@@ -679,8 +608,6 @@ module RFormation::Condition
   end
 
   module AnyValue0
-    def to_js_identifier ; text_value ; end
-    def to_js_string ; text_value.inspect ; end
   end
 
   module AnyValue1
@@ -690,42 +617,12 @@ module RFormation::Condition
   end
 
   module AnyValue3
-    def to_js_identifier
-      raise RFormation::FormError, "id expected"
-    end
-    def to_js_string
-      convert_string_syntax(text_value).inspect
-    end
   end
 
   module AnyValue4
   end
 
   module AnyValue5
-  end
-
-  module AnyValue6
-    def to_js_identifier
-      raise RFormation::FormError, "id expected"
-    end
-    def to_js_string
-      convert_string_syntax(text_value).inspect
-    end
-  end
-
-  module AnyValue7
-  end
-
-  module AnyValue8
-  end
-
-  module AnyValue9
-    def to_js_identifier
-      convert_string_syntax(text_value)
-    end
-    def to_js_string
-      raise RFormation::FormError, "string expected"
-    end
   end
 
   def _nt_any_value
@@ -755,8 +652,7 @@ module RFormation::Condition
       self.index = i1
       r1 = nil
     else
-      r1 = SyntaxNode.new(input, i1...index, s1)
-      r1.extend(AnyValue0)
+      r1 = RFormation::ConditionAST::Identifier.new(input, i1...index, s1)
     end
     if r1
       r0 = r1
@@ -804,7 +700,7 @@ module RFormation::Condition
             end
             if s8.last
               r8 = (SyntaxNode).new(input, i8...index, s8)
-              r8.extend(AnyValue1)
+              r8.extend(AnyValue0)
             else
               self.index = i8
               r8 = nil
@@ -836,9 +732,8 @@ module RFormation::Condition
         end
       end
       if s3.last
-        r3 = (SyntaxNode).new(input, i3...index, s3)
-        r3.extend(AnyValue2)
-        r3.extend(AnyValue3)
+        r3 = (RFormation::ConditionAST::DoubleString).new(input, i3...index, s3)
+        r3.extend(AnyValue1)
       else
         self.index = i3
         r3 = nil
@@ -889,7 +784,7 @@ module RFormation::Condition
               end
               if s17.last
                 r17 = (SyntaxNode).new(input, i17...index, s17)
-                r17.extend(AnyValue4)
+                r17.extend(AnyValue2)
               else
                 self.index = i17
                 r17 = nil
@@ -921,9 +816,8 @@ module RFormation::Condition
           end
         end
         if s12.last
-          r12 = (SyntaxNode).new(input, i12...index, s12)
-          r12.extend(AnyValue5)
-          r12.extend(AnyValue6)
+          r12 = (RFormation::ConditionAST::SingleString).new(input, i12...index, s12)
+          r12.extend(AnyValue3)
         else
           self.index = i12
           r12 = nil
@@ -974,7 +868,7 @@ module RFormation::Condition
                 end
                 if s26.last
                   r26 = (SyntaxNode).new(input, i26...index, s26)
-                  r26.extend(AnyValue7)
+                  r26.extend(AnyValue4)
                 else
                   self.index = i26
                   r26 = nil
@@ -1006,9 +900,8 @@ module RFormation::Condition
             end
           end
           if s21.last
-            r21 = (SyntaxNode).new(input, i21...index, s21)
-            r21.extend(AnyValue8)
-            r21.extend(AnyValue9)
+            r21 = (RFormation::ConditionAST::BackString).new(input, i21...index, s21)
+            r21.extend(AnyValue5)
           else
             self.index = i21
             r21 = nil

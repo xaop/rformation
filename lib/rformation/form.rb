@@ -74,7 +74,7 @@ module RFormation
     
     def initialize(*a)
       super
-      @id = register_element(self, @name)
+      @id, @variable = register_element(self, @name)
     end
     
   end
@@ -106,8 +106,8 @@ module RFormation
       i = @elements.length + 1
       id = "$element#{i}"
       variable = "element#{i}"
-      @elements[name] = [element, variable, id]
-      id
+      @elements[name] = [element, variable]
+      [id, variable]
     end
     
     def register_conditional(conditional)
@@ -119,6 +119,7 @@ module RFormation
     def eval_string(str)
       eval str, nil, "FORM_DSL", 1
     rescue Exception => e
+      raise e
       # Raise a more readable error message containing a line number.
       # Always raises a FormError no matter what specific error
       # happened, but it does retain the message.
@@ -326,9 +327,17 @@ module RFormation
       register_conditional(self)
     end
     
-    def resolve_condition(em)
-      @js_condition = @parsed_condition.to_js(em)
+    def resolve_condition(element_info)
+      @fields_of_interest = @parsed_condition.resolve(element_info)
+      # methods.each do |m|
+      #   if /\Atranslate_condition/ === m
+      #   end
+      # end
+      @js_condition = @parsed_condition.to_js(element_info)
       @parsed_condition = nil
+    rescue FormError => e
+      e.line_number = @line_number
+      raise
     end
     
   end

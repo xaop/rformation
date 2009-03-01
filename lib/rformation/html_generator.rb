@@ -1,4 +1,16 @@
 module RFormation
+
+  class Element
+
+    def js_string_value
+      raise FormError, "field #{@name.inspect} does not have a string value"
+    end
+    
+    def js_boolean_value
+      raise FormError, "field #{@name.inspect} does not have a boolean value"
+    end
+    
+  end
   
   class Form
     
@@ -95,6 +107,10 @@ module RFormation
       }}
     end
     
+    def js_string_value
+      "#{@variable}[#{@variable}.selectedIndex].value"
+    end
+    
   end
   
   class RadioSelect
@@ -114,6 +130,10 @@ module RFormation
       }}
     end
 
+    def js_string_value
+      raise "not yet"
+    end
+    
   end
   
   class File
@@ -123,6 +143,10 @@ module RFormation
         %label.normal_label{ :for => @id }= h @label
         %input{ :type => 'file', :id => @id, :name => @name }
       }}
+    end
+    
+    def js_string_value
+      "#{@variable}[#{@variable}.selectedIndex].value"
     end
     
   end
@@ -138,6 +162,10 @@ module RFormation
         - else
           %input{ :type => 'text', :id => @id, :name => @name, :value => value }
       }}
+    end
+    
+    def js_string_value
+      "#{@variable}[#{@variable}.selectedIndex].value"
     end
     
   end
@@ -163,13 +191,17 @@ module RFormation
       }}
     end
 
+    def js_boolean_value
+      "#{@variable}.checked"
+    end
+
   end
   
   class Conditional
     
     def to_html(list_of_values, data, actors)
       name = "actor#{actors.length}"
-      actors << [name, @js_condition]
+      actors << [name, [@fields_of_interest, @js_condition]]
       H {%{
         %div{ :style => "display: none; ", :id => name }
           - @items.each do |item|
@@ -177,6 +209,74 @@ module RFormation
       }}
     end
     
+  end
+
+  module ConditionAST
+
+    class Root
+
+      def to_js(element_info)
+        condition.to_js(element_info)
+      end
+
+    end
+  
+    class Or
+
+      def to_js(element_info)
+        '(%s) || (%s)' % [atomic_condition.to_js(element_info), and_condition.to_js(element_info)]
+      end
+
+    end
+  
+    class And
+
+      def to_js(element_info)
+        '(%s) && (%s)' % [atomic_condition.to_js(element_info), and_condition.to_js(element_info)]
+      end
+
+    end
+  
+    class Not
+
+      def to_js(element_info)
+        '!(%s)' % condition.to_js
+      end
+
+    end
+  
+    class Equals
+
+      def to_js(element_info)
+        "(#{field.js_string_value}) == #{value.inspect}"
+      end
+
+    end
+  
+    class NotEquals
+
+      def to_js(element_info)
+        "(#{field.js_string_value}) != #{value.inspect}"
+      end
+
+    end
+  
+    class IsOn
+
+      def to_js(element_info)
+        field.js_boolean_value
+      end
+
+    end
+  
+    class IsOff
+
+      def to_js(element_info)
+        "!(#{field.js_boolean_value})"
+      end
+
+    end
+
   end
 
 end

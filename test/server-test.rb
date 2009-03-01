@@ -31,6 +31,9 @@ render_form = proc do |req, resp|
   resp['ContentType'] = 'text/html'
   resp.body = <<-END
     <html>
+      <head>
+        <link rel="stylesheet" type="text/css" href="test.css" />
+      </head>
       <body>
         #{snippet}
       </body>
