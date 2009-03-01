@@ -329,11 +329,11 @@ module RFormation
     
     def resolve_condition(element_info)
       @fields_of_interest = @parsed_condition.resolve(element_info)
-      # methods.each do |m|
-      #   if /\Atranslate_condition/ === m
-      #   end
-      # end
-      @js_condition = @parsed_condition.to_js(element_info)
+      methods.each do |m|
+        if /\Atranslate_condition_to_/ === m
+          send(m, element_info)
+        end
+      end
       @parsed_condition = nil
     rescue FormError => e
       e.line_number = @line_number

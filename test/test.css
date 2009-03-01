@@ -8,6 +8,10 @@ font-weight: bold;
   float: left;
 }
 
+.radio_list_clear {
+  clear: left;
+}
+
 input.text, textarea, select{
 width: 180px;
 margin-bottom: 5px;
@@ -30,4 +34,8 @@ width: 90px;
 
 br{
 clear: left;
+}
+
+.info {
+  font-style: italic;
 }

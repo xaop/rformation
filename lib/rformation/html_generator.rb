@@ -42,26 +42,15 @@ module RFormation
     end
     
     def actors_to_html(list_of_values, actors)
-      el2actor = Hash.new { |h, k| h[k] = [] }
-      actors.each { |actor, (els, _)| els.each { |el| el2actor[el] << actor } }
+      el2actors = Hash.new { |h, k| h[k] = [] }
+      actors.each { |actor, (els, _)| els.each { |el| el2actors[el] << actor } }
       H {%{
         %script{ :type => 'text/javascript' }
-          - @elements.each do |name, (_, variable, id)|
-            = setup_for_element(id, variable, el2actor[variable])
+          - @elements.each do |name, (element, variable)|
+            = element.html_setup_for_element(el2actors[variable])
           - actors.each do |id, (_, exp)|
             = setup_for_actor(id, exp)
       }}
-    end
-    
-    def setup_for_element(id, name, el2actor)
-      unless el2actor.empty?
-        <<-END
-          var #{name} = document.getElementById(#{id.inspect});
-          #{name}.onchange = function() {
-            #{el2actor.map { |actor| "update_#{actor}(); " }}
-          }
-        END
-      end
     end
     
     def setup_for_actor(id, exp)
@@ -76,6 +65,21 @@ module RFormation
         }
         update_#{id}();
       END
+    end
+    
+  end
+  
+  module Named
+    
+    def html_setup_for_element(actors)
+      unless actors.empty?
+        <<-END
+          var #{@variable} = document.getElementById(#{@id.inspect});
+          #{@variable}.onchange = function() {
+            #{actors.map { |actor| "update_#{actor}(); " }}
+          }
+        END
+      end
     end
     
   end
@@ -115,23 +119,57 @@ module RFormation
   
   class RadioSelect
     
+    def html_setup_for_element(actors)
+      unless actors.empty?
+        setups = (0...@actual_values.length).map do |i|
+          option_id = "%s_%d" % [@id, i]
+          variable = "%s_%d" % [@variable, i]
+          <<-END
+            var #{variable} = document.getElementById(#{option_id.inspect});
+            #{variable}.onchange = function() {
+              #{actors.map { |actor| "update_#{actor}(); " }}
+            }
+          END
+        end.join
+        function_name = "%s_value" % @variable
+        value_getter = <<-END
+          function #{function_name}() {
+            return #{html_create_value_getter}
+          }
+        END
+        setups + value_getter
+      end
+    end
+    
+    def html_create_value_getter(indexes = (0...@actual_values.length).to_a)
+      if i = indexes.shift
+        variable = "%s_%d" % [@variable, i]
+        "(%s.checked ? %s.value : %s)" % [variable, variable, html_create_value_getter(indexes)]
+      else
+        '""'  
+      end
+    end
+    
     def to_html(list_of_values, data, actors)
+      @actual_values = entries(list_of_values)
       selected = data[@name]
       H {%{
         .radio_label= h @label
         .radio_list
-          - entries(list_of_values).each_with_index do |(id, label, default), i|
+          - @actual_values.each_with_index do |(id, label, default), i|
             - option_id = "%s_%d" % [@id, i]
             - if selected
               - default = (id == selected)
             %div
               %input{ default ? { :checked => "checked" } : {}, :type => 'radio', :value => id, :id => option_id, :name => @name }
               %label.radio_option{ :for => option_id }= label
+        .radio_list_clear
       }}
     end
 
     def js_string_value
-      raise "not yet"
+      function_name = "%s_value" % @variable
+      "%s()" % function_name
     end
     
   end
@@ -207,6 +245,10 @@ module RFormation
           - @items.each do |item|
             %div= item.to_html(list_of_values, data, actors)
       }}
+    end
+    
+    def translate_condition_to_js(element_info)
+      @js_condition = @parsed_condition.to_js(element_info)
     end
     
   end
