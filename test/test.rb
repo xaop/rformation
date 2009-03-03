@@ -53,7 +53,7 @@ form = RFormation::Form.new(<<-END, :lists_of_values => value_generator)
         value "you want to kill them with a mouse?"
       end
     end
-    condition 'kill_microsoft is on and optical_mouse is on or computer equals "3"' do
+    condition 'kill_microsoft is on and optical_mouse is on or computer equals "Tablet PC"' do
       text "message_to_you2" do
         value "you are evil"
       end
@@ -63,10 +63,14 @@ form = RFormation::Form.new(<<-END, :lists_of_values => value_generator)
       value "15 inches"
       value "19 inches"
     end
+    condition "screens not equals 19_inches" do
+      info "don't you want a bigger screen?"
+    end
   end
   group "Usage info" do
     text "frequent_traveller", :multi do
       label "frequent traveller"
+      validate "frequent_traveller is not empty"
     end
   end
 END

@@ -67,7 +67,7 @@ module RFormation::Condition
   end
 
   module OrCondition0
-    def and_condition
+    def exp1
       elements[0]
     end
 
@@ -79,7 +79,7 @@ module RFormation::Condition
       elements[3]
     end
 
-    def or_condition
+    def exp2
       elements[4]
     end
   end
@@ -143,7 +143,7 @@ module RFormation::Condition
   end
 
   module AndCondition0
-    def atomic_condition
+    def exp1
       elements[0]
     end
 
@@ -155,7 +155,7 @@ module RFormation::Condition
       elements[3]
     end
 
-    def and_condition
+    def exp2
       elements[4]
     end
   end
@@ -242,7 +242,7 @@ module RFormation::Condition
       elements[3]
     end
 
-    def condition
+    def exp
       elements[4]
     end
 
@@ -318,6 +318,40 @@ module RFormation::Condition
 
     def space
       elements[3]
+    end
+
+  end
+
+  module AtomicCondition6
+    def f
+      elements[0]
+    end
+
+    def space
+      elements[1]
+    end
+
+    def space
+      elements[3]
+    end
+
+  end
+
+  module AtomicCondition7
+    def f
+      elements[0]
+    end
+
+    def space
+      elements[1]
+    end
+
+    def space
+      elements[3]
+    end
+
+    def space
+      elements[5]
     end
 
   end
@@ -593,8 +627,106 @@ module RFormation::Condition
               if r35
                 r0 = r35
               else
-                self.index = i0
-                r0 = nil
+                i41, s41 = index, []
+                r42 = _nt_any_value
+                s41 << r42
+                if r42
+                  r43 = _nt_space
+                  s41 << r43
+                  if r43
+                    if input.index("is", index) == index
+                      r44 = (SyntaxNode).new(input, index...(index + 2))
+                      @index += 2
+                    else
+                      terminal_parse_failure("is")
+                      r44 = nil
+                    end
+                    s41 << r44
+                    if r44
+                      r45 = _nt_space
+                      s41 << r45
+                      if r45
+                        if input.index("empty", index) == index
+                          r46 = (SyntaxNode).new(input, index...(index + 5))
+                          @index += 5
+                        else
+                          terminal_parse_failure("empty")
+                          r46 = nil
+                        end
+                        s41 << r46
+                      end
+                    end
+                  end
+                end
+                if s41.last
+                  r41 = (RFormation::ConditionAST::IsEmpty).new(input, i41...index, s41)
+                  r41.extend(AtomicCondition6)
+                else
+                  self.index = i41
+                  r41 = nil
+                end
+                if r41
+                  r0 = r41
+                else
+                  i47, s47 = index, []
+                  r48 = _nt_any_value
+                  s47 << r48
+                  if r48
+                    r49 = _nt_space
+                    s47 << r49
+                    if r49
+                      if input.index("is", index) == index
+                        r50 = (SyntaxNode).new(input, index...(index + 2))
+                        @index += 2
+                      else
+                        terminal_parse_failure("is")
+                        r50 = nil
+                      end
+                      s47 << r50
+                      if r50
+                        r51 = _nt_space
+                        s47 << r51
+                        if r51
+                          if input.index("not", index) == index
+                            r52 = (SyntaxNode).new(input, index...(index + 3))
+                            @index += 3
+                          else
+                            terminal_parse_failure("not")
+                            r52 = nil
+                          end
+                          s47 << r52
+                          if r52
+                            r53 = _nt_space
+                            s47 << r53
+                            if r53
+                              if input.index("empty", index) == index
+                                r54 = (SyntaxNode).new(input, index...(index + 5))
+                                @index += 5
+                              else
+                                terminal_parse_failure("empty")
+                                r54 = nil
+                              end
+                              s47 << r54
+                            end
+                          end
+                        end
+                      end
+                    end
+                  end
+                  if s47.last
+                    r47 = (RFormation::ConditionAST::IsNotEmpty).new(input, i47...index, s47)
+                    r47.extend(AtomicCondition7)
+                  else
+                    self.index = i47
+                    r47 = nil
+                  end
+                  if r47
+                    r0 = r47
+                  else
+                    self.index = i0
+                    r0 = nil
+                  end
+                end
               end
             end
           end
@@ -732,7 +864,7 @@ module RFormation::Condition
         end
       end
       if s3.last
-        r3 = (RFormation::ConditionAST::DoubleString).new(input, i3...index, s3)
+        r3 = (RFormation::ConditionAST::String).new(input, i3...index, s3)
         r3.extend(AnyValue1)
       else
         self.index = i3
@@ -816,7 +948,7 @@ module RFormation::Condition
           end
         end
         if s12.last
-          r12 = (RFormation::ConditionAST::SingleString).new(input, i12...index, s12)
+          r12 = (RFormation::ConditionAST::String).new(input, i12...index, s12)
           r12.extend(AnyValue3)
         else
           self.index = i12

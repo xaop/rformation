@@ -1,7 +1,7 @@
-.normal_label, .radio_label{
-float: left;
-width: 120px;
-font-weight: bold;
+.normal_label, .radio_label {
+  float: left;
+  width: 120px;
+  font-weight: bold;
 }
 
 .radio_list{
@@ -12,28 +12,47 @@ font-weight: bold;
   clear: left;
 }
 
-input.text, textarea, select{
-width: 180px;
-margin-bottom: 5px;
+.text, .select, .checkbox {
+  width: 180px;
+  margin-bottom: 5px;
+}
+
+.radio_list, .checkbox_container {
+  width: 176px;
+  margin-bottom: 5px;
+}
+
+.valid .text, .valid .select, .valid .radio_list, .valid .checkbox_container {
+  border: 2px solid #88FF88;
+  background-color: #EEFFEE;
+}
+
+.invalid .text, .invalid .select, .invalid .radio_list, .valid .checkbox_container {
+  border: 2px solid #FF8888;
+  background-color: #FFEEEE;
+}
+
+.radio_option, .radio {
+  vertical-align: middle;
 }
 
 textarea{
-width: 250px;
-height: 150px;
+  width: 250px;
+  height: 150px;
 }
 
-.boxes{
-width: 1em;
+/*.boxes{
+  width: 1em;
 }
-
+*/
 #submitbutton{
-margin-left: 120px;
-margin-top: 5px;
-width: 90px;
+  margin-left: 120px;
+  margin-top: 5px;
+  width: 90px;
 }
 
 br{
-clear: left;
+  clear: left;
 }
 
 .info {

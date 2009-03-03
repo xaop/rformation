@@ -1,3 +1,5 @@
+# Note: we use fields and elements interchangeably from time to time.
+#       They mean the same thing: some input field in a form.
 module RFormation
 
   # A regular exception but with a line number attached
@@ -30,8 +32,8 @@ module RFormation
       @parent.register_element(element, name)
     end
     
-    def register_conditional(conditional)
-      @parent.register_conditional(conditional)
+    def register_resolver(&resolver)
+      @parent.register_resolver(&resolver)
     end
     
   end
@@ -47,6 +49,8 @@ module RFormation
     
   end
   
+  # I'm using this for extensibility. The list of supported elements is
+  # no longer hardcoded like this.
   def self.register_type(name, cl)
     ContainerElement.class_eval %{
       def #{name}(*a, &blk)
@@ -55,6 +59,7 @@ module RFormation
     }
   end
   
+  # Module for anything that can have a label.
   module Labeled
     
     def initialize(*a)
@@ -70,11 +75,54 @@ module RFormation
     
   end
   
+  # Module for anything that can have a name. These elements
+  # need to be registered because they can be referred to in
+  # conditions and validations.
   module Named
     
     def initialize(*a)
       super
       @id, @variable = register_element(self, @name)
+    end
+    
+  end
+  
+  # Module for anything that can have validations.
+  module Validated
+    
+    def initialize(*a)
+      @validations = []
+      @parsed_validations = []
+      super
+      register_resolver do |element_info|
+        begin
+          @fields_of_interest = []
+          @parsed_validations.each do |parsed_validation|
+            @fields_of_interest.concat(parsed_validation.resolve(element_info))
+          end
+          @fields_of_interest.uniq!
+          methods.each do |m|
+            if /\Atranslate_validations_to_/ === m
+              send(m, element_info)
+            end
+          end
+          @parsed_validations = nil
+        rescue FormError => e
+          e.line_number = @line_number
+          raise
+        end
+      end
+    end
+    
+    def validate(condition)
+      @validations << condition
+      @line_number = FormError.extract_line_number(caller)
+
+      parser = ConditionParser.new
+      unless parsed_condition = parser.parse(condition)
+        raise FormError.new(parser.failure_reason, @line_number)
+      end
+      @parsed_validations << parsed_condition
     end
     
   end
@@ -95,11 +143,14 @@ module RFormation
       options.empty? or raise "unknown options #{options.keys.join(", ")}"
       
       @elements = {}
-      @conditionals = []
+      @resolvers = []
       super(lists_of_values, nil) do
         eval_string(str)
       end
-      @conditionals.each { |c| c.resolve_condition(@elements) }
+      @resolvers.each { |resolver| resolver.call(@elements) }
+    rescue FormError => e
+      # To generate a cleaner backtrace
+      raise FormError.new(e.message, e.line_number)
     end
 
     def register_element(element, name)
@@ -110,8 +161,8 @@ module RFormation
       [id, variable]
     end
     
-    def register_conditional(conditional)
-      @conditionals << conditional
+    def register_resolver(&resolver)
+      @resolvers << resolver
     end
     
   private
@@ -152,8 +203,14 @@ module RFormation
   class Select < Element
     
     include Named
+    include Validated
     include Labeled
     
+    # TODO: clean this up somewhat. I like the way it is set up now
+    #       with the singleton methods because now it explicitly says
+    #       how methods will behave once a given method is called,
+    #       but at the moment it is a bit messy. Also, it is not entirely
+    #       DRY.
     def initialize(lists_of_values, parent, name, type = nil, &blk)
       @name = name
       @entries = []
@@ -237,6 +294,7 @@ module RFormation
   class Text < Element
     
     include Named
+    include Validated
     include Labeled
     
     def initialize(lists_of_values, parent, name, *a, &blk)
@@ -256,9 +314,11 @@ module RFormation
   
   register_type :text, Text
   
+  # File upload field
   class File < Element
     
     include Named
+    include Validated
     include Labeled
     
     def initialize(lists_of_values, parent, name, &blk)
@@ -270,6 +330,7 @@ module RFormation
   
   register_type :file, File
   
+  # A field that just displays some informative text.
   class Info < Element
     
     def initialize(lists_of_values, parent, text)
@@ -281,9 +342,11 @@ module RFormation
   
   register_type :info, Info
   
+  # A checkbox
   class CheckBox < Element
     
     include Named
+    include Validated
     include Labeled
     
     def initialize(lists_of_values, parent, name, &blk)
@@ -324,20 +387,20 @@ module RFormation
       end
 
       super(lists_of_values, parent, &blk)
-      register_conditional(self)
-    end
-    
-    def resolve_condition(element_info)
-      @fields_of_interest = @parsed_condition.resolve(element_info)
-      methods.each do |m|
-        if /\Atranslate_condition_to_/ === m
-          send(m, element_info)
+      register_resolver do |element_info|
+        begin
+          @fields_of_interest = @parsed_condition.resolve(element_info)
+          methods.each do |m|
+            if /\Atranslate_condition_to_/ === m
+              send(m, element_info)
+            end
+          end
+          @parsed_condition = nil
+        rescue FormError => e
+          e.line_number = @line_number
+          raise
         end
       end
-      @parsed_condition = nil
-    rescue FormError => e
-      e.line_number = @line_number
-      raise
     end
     
   end

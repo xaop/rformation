@@ -1,17 +1,9 @@
+# This file reopens the classes inside RFormation to add the
+# funtionality to generate a HTML version of the form.
+# You may want to consult form.rb to find out how the classes
+# and modules are related.
 module RFormation
 
-  class Element
-
-    def js_string_value
-      raise FormError, "field #{@name.inspect} does not have a string value"
-    end
-    
-    def js_boolean_value
-      raise FormError, "field #{@name.inspect} does not have a boolean value"
-    end
-    
-  end
-  
   class Form
     
     def to_html(options = {})
@@ -25,58 +17,109 @@ module RFormation
       end
       options.empty? or raise "unknown options #{options.keys.join(", ")}"
       
-      actors = []
-      fields = fields_to_html(list_of_values, data, actors)
-      actors = actors_to_html(list_of_values, actors)
+      actor2els = {}
+      # This call does 2 things
+      # * it renders the fields to HTML
+      # * it collects the active elements (actors) in a Hash called
+      #   actors that maps the name of an actor onto the list of
+      #   elements that influence its behavior. For instance a
+      #   condition that refers to element1 and element2 would
+      #   add an entry #<Condition:...> => ["element1", "element2"].
+      fields = fields_to_html(list_of_values, data, actor2els)
+      actors = actors_to_html(list_of_values, actor2els)
       H {%{
         = fields
         = actors
       }}
     end
     
-    def fields_to_html(list_of_values, data, actors)
+    def fields_to_html(list_of_values, data, actor2els)
       H {%{
         - @items.each do |item|
-          %div= item.to_html(list_of_values, data, actors)
+          %div= item.to_html(list_of_values, data, actor2els)
       }}
     end
     
-    def actors_to_html(list_of_values, actors)
+    def actors_to_html(list_of_values, actor2els)
+      # The actors variable contains the map of actors onto
+      # the elements that influence it, but here we need the
+      # inverse, i.e., a hash that maps an element onto all
+      # the actors it influences.
       el2actors = Hash.new { |h, k| h[k] = [] }
-      actors.each { |actor, (els, _)| els.each { |el| el2actors[el] << actor } }
+      actor2els.each do |actor, els|
+        els.each do |el|
+          el2actors[el] << actor
+        end
+      end
       H {%{
         %script{ :type => 'text/javascript' }
           - @elements.each do |name, (element, variable)|
-            = element.html_setup_for_element(el2actors[variable])
-          - actors.each do |id, (_, exp)|
-            = setup_for_actor(id, exp)
+            = element.js_setup_for_element(el2actors[variable])
+          - actor2els.each do |actor, elements|
+            = actor.js_setup_for_actor
       }}
-    end
-    
-    def setup_for_actor(id, exp)
-      <<-END
-        var #{id} = document.getElementById(#{id.inspect});
-        function update_#{id}() {
-          if (#{exp}) {
-            #{id}.style.display = "block";
-          } else {
-            #{id}.style.display = "none";
-          }
-        }
-        update_#{id}();
-      END
     end
     
   end
   
+  class Element
+
+    def js_string_value
+      raise FormError, "field #{@name.inspect} does not have a string value"
+    end
+    
+    def js_boolean_value
+      raise FormError, "field #{@name.inspect} does not have a boolean value"
+    end
+    
+  end
+  
+  module Validated
+    
+    def to_html(actor2els, content)
+      unless @validations.empty?
+        @container_id = "actor#{actor2els.length}"
+        actor2els[self] = @fields_of_interest
+        cl = "valid"
+      end
+      H {%{
+        %div{ :id => @container_id, :class => cl }
+          = content
+      }}
+    end
+    
+    def translate_validations_to_js(element_info)
+      @js_conditions = @parsed_validations.map { |validation| validation.to_js(element_info) }
+    end
+    
+    def js_update
+      "update_#{@container_id}();"
+    end
+    
+    def js_setup_for_actor
+      <<-END
+        var #{@container_id} = document.getElementById(#{@container_id.inspect});
+        function update_#{@container_id}() {
+          if (#{@js_conditions.join(" && ")}) {
+            #{@container_id}.className = "valid";
+          } else {
+            #{@container_id}.className = "invalid";
+          }
+        }
+        update_#{@container_id}();
+      END
+    end
+    
+  end
+
   module Named
     
-    def html_setup_for_element(actors)
+    def js_setup_for_element(actors)
       unless actors.empty?
         <<-END
           var #{@variable} = document.getElementById(#{@id.inspect});
           #{@variable}.onchange = function() {
-            #{actors.map { |actor| "update_#{actor}(); " }}
+            #{actors.map { |actor| actor.js_update }}
           }
         END
       end
@@ -86,12 +129,12 @@ module RFormation
   
   class Group
     
-    def to_html(list_of_values, data, actors)
+    def to_html(list_of_values, data, actor2els)
       H {%{
         %fieldset
           %legend= h @caption
           - @items.each do |item|
-            %div= item.to_html(list_of_values, data, actors)
+            %div= item.to_html(list_of_values, data, actor2els)
       }}
     end
     
@@ -99,16 +142,17 @@ module RFormation
   
   class DropdownSelect
     
-    def to_html(list_of_values, data, actors)
+    def to_html(list_of_values, data, actor2els)
       selected = data[@name]
-      H {%{
+      content = H {%{
         %label.normal_label{ :for => @id }= h @label
-        %select{ :name => @name, :id => @id }
+        %select.select{ :name => @name, :id => @id }
           - entries(list_of_values).each do |id, label, default|
             - if selected
               - default = (id == selected)
             %option{ default ? { :selected => "selected" } : {}, :value => id }= label
       }}
+      super(actor2els, content)
     end
     
     def js_string_value
@@ -119,7 +163,8 @@ module RFormation
   
   class RadioSelect
     
-    def html_setup_for_element(actors)
+    def js_setup_for_element(actors)
+      super
       unless actors.empty?
         setups = (0...@actual_values.length).map do |i|
           option_id = "%s_%d" % [@id, i]
@@ -127,7 +172,7 @@ module RFormation
           <<-END
             var #{variable} = document.getElementById(#{option_id.inspect});
             #{variable}.onchange = function() {
-              #{actors.map { |actor| "update_#{actor}(); " }}
+              #{actors.map { |actor| actor.js_update }}
             }
           END
         end.join
@@ -141,30 +186,31 @@ module RFormation
       end
     end
     
-    def html_create_value_getter(indexes = (0...@actual_values.length).to_a)
-      if i = indexes.shift
+    def html_create_value_getter
+      result = '""'
+      @actual_values.length.times do |i|
         variable = "%s_%d" % [@variable, i]
-        "(%s.checked ? %s.value : %s)" % [variable, variable, html_create_value_getter(indexes)]
-      else
-        '""'  
+        result = "(%s.checked ? %s.value : %s)" % [variable, variable, result]
       end
+      result
     end
     
-    def to_html(list_of_values, data, actors)
+    def to_html(list_of_values, data, actor2els)
       @actual_values = entries(list_of_values)
       selected = data[@name]
-      H {%{
+      content = H {%{
         .radio_label= h @label
         .radio_list
           - @actual_values.each_with_index do |(id, label, default), i|
             - option_id = "%s_%d" % [@id, i]
             - if selected
               - default = (id == selected)
-            %div
-              %input{ default ? { :checked => "checked" } : {}, :type => 'radio', :value => id, :id => option_id, :name => @name }
-              %label.radio_option{ :for => option_id }= label
+            %div.radio_option
+              %input.radio{ default ? { :checked => "checked" } : {}, :type => 'radio', :value => id, :id => option_id, :name => @name }
+              %label.radio_text{ :for => option_id }= label
         .radio_list_clear
       }}
+      super(actor2els, content)
     end
 
     def js_string_value
@@ -176,41 +222,43 @@ module RFormation
   
   class File
     
-    def to_html(list_of_values, data, actors)
-      H {%{
+    def to_html(list_of_values, data, actor2els)
+      content = H {%{
         %label.normal_label{ :for => @id }= h @label
-        %input{ :type => 'file', :id => @id, :name => @name }
+        %input.file{ :type => 'file', :id => @id, :name => @name }
       }}
+      super(actor2els, content)
     end
     
     def js_string_value
-      "#{@variable}[#{@variable}.selectedIndex].value"
+      "#{@variable}.value"
     end
     
   end
   
   class Text
     
-    def to_html(list_of_values, data, actors)
+    def to_html(list_of_values, data, actor2els)
       value = data[@name] || @value
-      H {%{
+      content = H {%{
         %label.normal_label{ :for => @id }= h @label
         - if @multi
-          %textarea{ :id => @id, :name => @name }= h value
+          %textarea{ :id => @id, :name => @name, :class => "text" }= h value
         - else
-          %input{ :type => 'text', :id => @id, :name => @name, :value => value }
+          %input.text{ :type => 'text', :id => @id, :name => @name, :value => value }
       }}
+      super(actor2els, content)
     end
     
     def js_string_value
-      "#{@variable}[#{@variable}.selectedIndex].value"
+      "#{@variable}.value"
     end
     
   end
   
   class Info
     
-    def to_html(list_of_values, data, actors)
+    def to_html(list_of_values, data, actor2els)
       H {%{
         %div.info= @text
       }}
@@ -220,13 +268,15 @@ module RFormation
   
   class CheckBox
     
-    def to_html(list_of_values, data, actors)
+    def to_html(list_of_values, data, actor2els)
       on = @on_by_default
       on = data[@name] if data.has_key?(@name)
-      H {%{
+      content = H {%{
         %label.normal_label{ :for => @id }= h @label
-        %input.boxes{ on ? { :checked => "checked" } : {}, :type => 'checkbox', :id => @id, :name => @name }
+        .checkbox_container
+          %input.checkbox{ on ? { :checked => "checked" } : {}, :type => 'checkbox', :id => @id, :name => @name }
       }}
+      super(actor2els, content)
     end
 
     def js_boolean_value
@@ -237,18 +287,36 @@ module RFormation
   
   class Conditional
     
-    def to_html(list_of_values, data, actors)
-      name = "actor#{actors.length}"
-      actors << [name, [@fields_of_interest, @js_condition]]
+    def to_html(list_of_values, data, actor2els)
+      @name = "actor#{actor2els.length}"
+      actor2els[self] = @fields_of_interest
       H {%{
-        %div{ :style => "display: none; ", :id => name }
+        %div{ :style => "display: none; ", :id => @name }
           - @items.each do |item|
-            %div= item.to_html(list_of_values, data, actors)
+            %div= item.to_html(list_of_values, data, actor2els)
       }}
     end
     
     def translate_condition_to_js(element_info)
       @js_condition = @parsed_condition.to_js(element_info)
+    end
+    
+    def js_setup_for_actor
+      <<-END
+        var #{@name} = document.getElementById(#{@name.inspect});
+        function update_#{@name}() {
+          if (#{@js_condition}) {
+            #{@name}.style.display = "block";
+          } else {
+            #{@name}.style.display = "none";
+          }
+        }
+        update_#{@name}();
+      END
+    end
+    
+    def js_update
+      "update_#{@name}();"
     end
     
   end
@@ -266,7 +334,7 @@ module RFormation
     class Or
 
       def to_js(element_info)
-        '(%s) || (%s)' % [atomic_condition.to_js(element_info), and_condition.to_js(element_info)]
+        '(%s) || (%s)' % [exp1.to_js(element_info), exp2.to_js(element_info)]
       end
 
     end
@@ -274,7 +342,7 @@ module RFormation
     class And
 
       def to_js(element_info)
-        '(%s) && (%s)' % [atomic_condition.to_js(element_info), and_condition.to_js(element_info)]
+        '(%s) && (%s)' % [exp1.to_js(element_info), exp2.to_js(element_info)]
       end
 
     end
@@ -282,7 +350,7 @@ module RFormation
     class Not
 
       def to_js(element_info)
-        '!(%s)' % condition.to_js
+        '!(%s)' % exp.to_js
       end
 
     end
@@ -317,6 +385,22 @@ module RFormation
         "!(#{field.js_boolean_value})"
       end
 
+    end
+    
+    class IsEmpty
+      
+      def to_js(element_info)
+        "(#{field.js_string_value}).match(new RegExp('^\s*$'))"
+      end
+      
+    end
+    
+    class IsNotEmpty
+      
+      def to_js(element_info)
+        "!(#{field.js_string_value}).match(new RegExp('^\s*$'))"
+      end
+      
     end
 
   end

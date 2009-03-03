@@ -1,3 +1,7 @@
+# This defines all the AST classes that will be instantiated
+# by the parser. All methods that are not directly related to
+# generating a particular output (HTML or Ruby) are put in
+# this file.
 module RFormation::ConditionAST
 
   class Identifier < Treetop::Runtime::SyntaxNode
@@ -39,7 +43,7 @@ module RFormation::ConditionAST
   
   end
 
-  class BackString < Treetop::Runtime::SyntaxNode
+  class BackString < String
 
     def to_identifier
       convert_string_syntax(text_value)
@@ -53,6 +57,7 @@ module RFormation::ConditionAST
   
   class Root < Treetop::Runtime::SyntaxNode
     
+    # This method is used to resolve references to form fields.
     def resolve(element_info)
       condition.resolve(element_info).keys
     end
@@ -142,6 +147,34 @@ module RFormation::ConditionAST
   end
   
   class IsOff < Treetop::Runtime::SyntaxNode
+
+    def resolve(element_info)
+      @field, variable = element_info[f.to_identifier]
+      @field or raise RFormation::FormError, "field #{f.to_identifier.inspect} not found"
+      { variable => true }
+    end
+    
+    def field
+      @field
+    end
+    
+  end
+  
+  class IsEmpty < Treetop::Runtime::SyntaxNode
+    
+    def resolve(element_info)
+      @field, variable = element_info[f.to_identifier]
+      @field or raise RFormation::FormError, "field #{f.to_identifier.inspect} not found"
+      { variable => true }
+    end
+    
+    def field
+      @field
+    end
+
+  end
+  
+  class IsNotEmpty < Treetop::Runtime::SyntaxNode
 
     def resolve(element_info)
       @field, variable = element_info[f.to_identifier]

@@ -6,25 +6,27 @@ grammar Condition
     or_condition  
   end
   rule or_condition
-      and_condition space "or" space or_condition <RFormation::ConditionAST::Or>
+      exp1:and_condition space "or" space exp2:or_condition <RFormation::ConditionAST::Or>
     / and_condition
   end
   rule and_condition
-      atomic_condition space "and" space and_condition <RFormation::ConditionAST::And>
+      exp1:atomic_condition space "and" space exp2:and_condition <RFormation::ConditionAST::And>
     / atomic_condition
   end
   rule atomic_condition
       "(" ospace condition ospace ")" <RFormation::ConditionAST::Parentheses>
-    / "not" ospace "(" ospace condition ospace ")" <RFormation::ConditionAST::Not>
+    / "not" ospace "(" ospace exp:condition ospace ")" <RFormation::ConditionAST::Not>
     / f:any_value space "equals" space v:any_value <RFormation::ConditionAST::Equals>
     / f:any_value space "not" space "equals" space v:any_value <RFormation::ConditionAST::NotEquals>
     / f:any_value space "is" space "on" <RFormation::ConditionAST::IsOn>
     / f:any_value space "is" space "off" <RFormation::ConditionAST::IsOff>
+    / f:any_value space "is" space "empty" <RFormation::ConditionAST::IsEmpty>
+    / f:any_value space "is" space "not" space "empty" <RFormation::ConditionAST::IsNotEmpty>
   end
   rule any_value
       [^ \t\n\r\f()'"`#]+ <RFormation::ConditionAST::Identifier>
-    / '"' ([^\\"] / "\\" .)* '"' <RFormation::ConditionAST::DoubleString>
-    / "'" ([^\\'] / "\\" .)* "'" <RFormation::ConditionAST::SingleString>
+    / '"' ([^\\"] / "\\" .)* '"' <RFormation::ConditionAST::String>
+    / "'" ([^\\'] / "\\" .)* "'" <RFormation::ConditionAST::String>
     / "`" ([^\\`] / "\\" .)* "`" <RFormation::ConditionAST::BackString>
   end
   rule space

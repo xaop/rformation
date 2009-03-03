@@ -1,3 +1,16 @@
+# A couple of helpers for generation of HTML.
+# Provides escaping if HTML through the h method,
+# and HAML templating through the H method.
+
+# The H method takes a block for the simple reason
+# that a block carries the binding of wherever the
+# block is defined and we can have the template
+# access local variables that way. Looks kinda neat
+# when used together with %{} string syntax:
+#   H {%{
+#     ...
+#   }}
+#   
 module RFormation
   
   module HTMLHelpers
