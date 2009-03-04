@@ -148,6 +148,7 @@ module RFormation
         eval_string(str)
       end
       @resolvers.each { |resolver| resolver.call(@elements) }
+      @resolvers = nil
     rescue FormError => e
       # To generate a cleaner backtrace
       raise FormError.new(e.message, e.line_number)
