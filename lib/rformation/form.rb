@@ -342,6 +342,20 @@ module RFormation
   
   register_type :info, Info
   
+  # Insert a link to for instance more information
+  class Link < Element
+    
+    include Labeled
+
+    def initialize(lists_of_values, parent, url)
+      @name = @url = url
+      super(lists_of_values, parent)
+    end
+    
+  end
+  
+  register_type :link, Link
+  
   # A checkbox
   class CheckBox < Element
     

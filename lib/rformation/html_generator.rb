@@ -150,7 +150,7 @@ module RFormation
           - entries(list_of_values).each do |id, label, default|
             - if selected
               - default = (id == selected)
-            %option{ default ? { :selected => "selected" } : {}, :value => id }= label
+            %option{ default ? { :selected => "selected" } : {}, :value => id }= h label
       }}
       super(actor2els, content)
     end
@@ -207,7 +207,7 @@ module RFormation
               - default = (id == selected)
             %div.radio_option
               %input.radio{ default ? { :checked => "checked" } : {}, :type => 'radio', :value => id, :id => option_id, :name => @name }
-              %label.radio_text{ :for => option_id }= label
+              %label.radio_text{ :for => option_id }= h label
         .radio_list_clear
       }}
       super(actor2els, content)
@@ -261,6 +261,17 @@ module RFormation
     def to_html(list_of_values, data, actor2els)
       H {%{
         %div.info= @text
+      }}
+    end
+    
+  end
+  
+  class Link
+    
+    def to_html(list_of_values, data, actor2els)
+      H {%{
+        %div.link
+          %a{ :href => @url }= h @label
       }}
     end
     
