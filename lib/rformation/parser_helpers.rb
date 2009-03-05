@@ -22,7 +22,7 @@ module RFormation::ConditionAST
     # Escape sequences \a \t \f \n \r are converted to the respective
     # characters, all other escaped characters are retained verbatim.
     # This method is used from the condition parser.
-    def convert_string_syntax(str)
+    def unescape_string_syntax(str)
       str[1..-2].gsub(/\\(.)/) do
         case $1
         when *%w[a t f n r]
@@ -32,13 +32,17 @@ module RFormation::ConditionAST
         end
       end
     end
+    
+    def self.escape_back_string_syntax(str)
+      "`%s`" % (str.gsub(/([\\`])/) { "\\%s" % $1 })
+    end
 
     def to_identifier
       raise RFormation::FormError, "id expected"
     end
 
     def to_string
-      convert_string_syntax(text_value)
+      unescape_string_syntax(text_value)
     end
   
   end
@@ -46,7 +50,7 @@ module RFormation::ConditionAST
   class BackString < String
 
     def to_identifier
-      convert_string_syntax(text_value)
+      unescape_string_syntax(text_value)
     end
     
     def to_string

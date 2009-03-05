@@ -8,14 +8,18 @@ begin
   form_spec = File.read($*[0])
   form_data = YAML.load(File.read($*[1]))
   form = RFormation::Form.new(form_spec, :lists_of_values => proc { true })
-  puts "<form action='test_form' method='post'>"
-  puts form.to_html(:data => form_data, :lists_of_values => proc { [[1, 2]] })
-  puts "<div style='clear: left; ' id='rformationGlobalError'><input type='submit' value='test form'></input><span class = 'globalErrorMessage'>there are errors<span></div>"
-  puts "</form>"
+  result = form.validate_form(form_data)
+  puts "<pre>"
+  puts h(result.to_yaml)
+  puts "</pre>"
 rescue RFormation::FormError => e
   puts "<div style='color: red'>line %d : %s</div>" % [e.line_number, e.message]
   puts "<pre style='margin-left: 1em; '>#{form_spec}</pre>"
   puts "<pre>#{e.backtrace.join("\n")}</pre>"
+rescue RFormation::ValidationError => e
+  e.errors.each do |field, errors|
+    puts "<div style='color: red'>%s : %s</div>" % [h(field), errors.map { |e| h(e) }.join(", ")]
+  end
 rescue Exception => e
   puts "<pre>"
   puts h(e.message)

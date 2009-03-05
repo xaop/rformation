@@ -92,6 +92,7 @@ module RFormation
     
     def initialize(*a)
       @validations = []
+      @error_messages = []
       @parsed_validations = []
       super
       register_resolver do |element_info|
@@ -114,8 +115,9 @@ module RFormation
       end
     end
     
-    def validate(condition)
+    def validate(condition, error_message)
       @validations << condition
+      @error_messages << error_message
       @line_number = FormError.extract_line_number(caller)
 
       parser = ConditionParser.new
@@ -123,6 +125,14 @@ module RFormation
         raise FormError.new(parser.failure_reason, @line_number)
       end
       @parsed_validations << parsed_condition
+    end
+    
+  end
+  
+  module Requirable
+    
+    def mandatory
+      validate("%s is not empty" % RFormation::ConditionAST::String.escape_back_string_syntax(@name), "is mandatory")
     end
     
   end
@@ -156,8 +166,8 @@ module RFormation
 
     def register_element(element, name)
       i = @elements.length + 1
-      id = "$element#{i}"
-      variable = "element#{i}"
+      id = "rformationElement#{i}"
+      variable = "rformationElement#{i}"
       @elements[name] = [element, variable]
       [id, variable]
     end
@@ -171,7 +181,6 @@ module RFormation
     def eval_string(str)
       eval str, nil, "FORM_DSL", 1
     rescue Exception => e
-      raise e
       # Raise a more readable error message containing a line number.
       # Always raises a FormError no matter what specific error
       # happened, but it does retain the message.
@@ -206,6 +215,7 @@ module RFormation
     include Named
     include Validated
     include Labeled
+    include Requirable
     
     # TODO: clean this up somewhat. I like the way it is set up now
     #       with the singleton methods because now it explicitly says
@@ -297,6 +307,7 @@ module RFormation
     include Named
     include Validated
     include Labeled
+    include Requirable
     
     def initialize(lists_of_values, parent, name, *a, &blk)
       @multi = a.delete(:multi)
@@ -321,6 +332,7 @@ module RFormation
     include Named
     include Validated
     include Labeled
+    include Requirable
     
     def initialize(lists_of_values, parent, name, &blk)
       @name = name
@@ -388,6 +400,19 @@ module RFormation
   end
   
   register_type :box, CheckBox
+  
+  class Hidden < Element
+    
+    include Named
+    
+    def initialize(lists_of_values, parent, name, value)
+      @name = name
+      @value = value
+    end
+    
+  end
+  
+  register_type :hidden, Hidden
   
   # The portion included in a condition is shown conditionally.
   class Conditional < ContainerElement

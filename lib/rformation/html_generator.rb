@@ -53,11 +53,42 @@ module RFormation
       end
       H {%{
         %script{ :type => 'text/javascript' }
+          = js_error_reporting
           - @elements.each do |name, (element, variable)|
             = element.js_setup_for_element(el2actors[variable])
           - actor2els.each do |actor, elements|
             = actor.js_setup_for_actor
       }}
+    end
+    
+    def js_error_reporting
+      <<-END
+        var rformationErrorCount = 0;
+        var rformationGlobalError = null;
+        function rformationSetGlobalError() {
+          rformationGlobalError = rformationGlobalError || document.getElementById("rformationGlobalError");
+          if (rformationGlobalError) {
+            if (rformationErrorCount == 0) {
+              rformationGlobalError.className = rformationGlobalError.className.replace("has_errors");
+            } else {
+              rformationGlobalError.className = rformationGlobalError.className.replace("has_errors") + " has_errors";
+            }
+          }
+        }
+        function rformationIncreaseErrors() {
+          rformationErrorCount += 1;
+          rformationSetGlobalError();
+        }
+        function rformationDecreaseErrors() {
+          rformationErrorCount -= 1;
+          rformationSetGlobalError();
+        }
+        if (window.attachEvent) {
+          window.attachEvent("onload", function () { rformationSetGlobalError(); return true; })
+        } else {
+          window.addEventListener("load", function () { rformationSetGlobalError(); return true; }, true)
+        }
+      END
     end
     
   end
@@ -77,15 +108,22 @@ module RFormation
   module Validated
     
     def to_html(actor2els, content)
-      unless @validations.empty?
-        @container_id = "actor#{actor2els.length}"
+      if @validations.empty?
+        H {%{
+          %div
+            = content
+        }}
+      else
+        @container_id = "rformationActor#{actor2els.length}"
+        @messages_id = "rformationMessages#{actor2els.length}"
+        @flag_id = "rformationInError#{actor2els.length}"
         actor2els[self] = @fields_of_interest
-        cl = "valid"
+        H {%{
+          %div{ :id => @container_id }
+            = content
+            %div.error_message{ :id => @messages_id }
+        }}
       end
-      H {%{
-        %div{ :id => @container_id, :class => cl }
-          = content
-      }}
     end
     
     def translate_validations_to_js(element_info)
@@ -97,33 +135,45 @@ module RFormation
     end
     
     def js_setup_for_actor
+      checks = @js_conditions.zip(@error_messages).map { |c, e| js_separate_validation_checks(c, e) }
       <<-END
         var #{@container_id} = document.getElementById(#{@container_id.inspect});
+        var #{@messages_id} = document.getElementById(#{@messages_id.inspect});
+        var #{@flag_id} = false;
         function update_#{@container_id}() {
-          if (#{@js_conditions.join(" && ")}) {
+          var errorMessages = [];
+          #{checks}
+          if (errorMessages.length == 0) {
             #{@container_id}.className = "valid";
+            #{@messages_id}.innerHTML = "";
+            if (#{@flag_id}) {
+              rformationDecreaseErrors();
+            }
+            #{@flag_id} = false;
           } else {
             #{@container_id}.className = "invalid";
+            #{@messages_id}.innerHTML = errorMessages.join(', ');
+            if (!#{@flag_id}) {
+              rformationIncreaseErrors();
+            }
+            #{@flag_id} = true;
           }
         }
         update_#{@container_id}();
       END
     end
     
+    def js_separate_validation_checks(condition, message)
+      <<-END
+        if (!(#{condition})) {
+          errorMessages.push(#{message.inspect});
+        }
+      END
+    end
+    
   end
 
   module Named
-    
-    def js_setup_for_element(actors)
-      unless actors.empty?
-        <<-END
-          var #{@variable} = document.getElementById(#{@id.inspect});
-          #{@variable}.onchange = function() {
-            #{actors.map { |actor| actor.js_update }}
-          }
-        END
-      end
-    end
     
   end
   
@@ -146,17 +196,32 @@ module RFormation
       selected = data[@name]
       content = H {%{
         %label.normal_label{ :for => @id }= h @label
-        %select.select{ :name => @name, :id => @id }
-          - entries(list_of_values).each do |id, label, default|
-            - if selected
-              - default = (id == selected)
-            %option{ default ? { :selected => "selected" } : {}, :value => id }= h label
+        %div.select
+          %select{ :name => @name, :id => @id }
+            - entries(list_of_values).each do |id, label, default|
+              - if selected
+                - default = (id == selected)
+              %option{ default ? { :selected => "selected" } : {}, :value => id }= h label
       }}
-      super(actor2els, content)
+      H {%{
+        = super(actor2els, content)
+        .select_clear
+      }}      
     end
     
     def js_string_value
       "#{@variable}[#{@variable}.selectedIndex].value"
+    end
+    
+    def js_setup_for_element(actors)
+      unless actors.empty?
+        <<-END
+          var #{@variable} = document.getElementById(#{@id.inspect});
+          #{@variable}.onchange = function() {
+            #{actors.map { |actor| actor.js_update }}
+          }
+        END
+      end
     end
     
   end
@@ -164,14 +229,13 @@ module RFormation
   class RadioSelect
     
     def js_setup_for_element(actors)
-      super
       unless actors.empty?
         setups = (0...@actual_values.length).map do |i|
           option_id = "%s_%d" % [@id, i]
           variable = "%s_%d" % [@variable, i]
           <<-END
             var #{variable} = document.getElementById(#{option_id.inspect});
-            #{variable}.onchange = function() {
+            #{variable}.onclick = function() {
               #{actors.map { |actor| actor.js_update }}
             }
           END
@@ -208,9 +272,11 @@ module RFormation
             %div.radio_option
               %input.radio{ default ? { :checked => "checked" } : {}, :type => 'radio', :value => id, :id => option_id, :name => @name }
               %label.radio_text{ :for => option_id }= h label
-        .radio_list_clear
       }}
-      super(actor2els, content)
+      H {%{
+        = super(actor2els, content)
+        .radio_list_clear
+      }}      
     end
 
     def js_string_value
@@ -225,13 +291,31 @@ module RFormation
     def to_html(list_of_values, data, actor2els)
       content = H {%{
         %label.normal_label{ :for => @id }= h @label
-        %input.file{ :type => 'file', :id => @id, :name => @name }
+        %div.file
+          %input{ :type => 'file', :id => @id, :name => @name }
       }}
-      super(actor2els, content)
+      H {%{
+        = super(actor2els, content)
+        .file_clear
+      }}      
     end
     
     def js_string_value
       "#{@variable}.value"
+    end
+    
+    def js_setup_for_element(actors)
+      unless actors.empty?
+        <<-END
+          var #{@variable} = document.getElementById(#{@id.inspect});
+          #{@variable}.onkeyup = function() {
+            #{actors.map { |actor| actor.js_update }}
+          }
+          #{@variable}.onchange = function() {
+            #{actors.map { |actor| actor.js_update }}
+          }
+        END
+      end
     end
     
   end
@@ -242,16 +326,31 @@ module RFormation
       value = data[@name] || @value
       content = H {%{
         %label.normal_label{ :for => @id }= h @label
-        - if @multi
-          %textarea{ :id => @id, :name => @name, :class => "text" }= h value
-        - else
-          %input.text{ :type => 'text', :id => @id, :name => @name, :value => value }
+        %div.text
+          - if @multi
+            %textarea{ :id => @id, :name => @name }= h value
+          - else
+            %input{ :type => 'text', :id => @id, :name => @name, :value => value }
       }}
-      super(actor2els, content)
+      H {%{
+        = super(actor2els, content)
+        .text_clear
+      }}      
     end
     
     def js_string_value
       "#{@variable}.value"
+    end
+    
+    def js_setup_for_element(actors)
+      unless actors.empty?
+        <<-END
+          var #{@variable} = document.getElementById(#{@id.inspect});
+          #{@variable}.onkeyup = function() {
+            #{actors.map { |actor| actor.js_update }}
+          }
+        END
+      end
     end
     
   end
@@ -284,22 +383,46 @@ module RFormation
       on = data[@name] if data.has_key?(@name)
       content = H {%{
         %label.normal_label{ :for => @id }= h @label
-        .checkbox_container
-          %input.checkbox{ on ? { :checked => "checked" } : {}, :type => 'checkbox', :id => @id, :name => @name }
+        .checkbox
+          %input{ on ? { :checked => "checked" } : {}, :type => 'checkbox', :id => @id, :name => @name }
       }}
-      super(actor2els, content)
+      H {%{
+        = super(actor2els, content)
+        .checkbox_clear
+      }}      
     end
 
     def js_boolean_value
       "#{@variable}.checked"
     end
 
+    def js_setup_for_element(actors)
+      unless actors.empty?
+        <<-END
+          var #{@variable} = document.getElementById(#{@id.inspect});
+          #{@variable}.onclick = function() {
+            #{actors.map { |actor| actor.js_update }}
+          }
+        END
+      end
+    end
+    
+  end
+  
+  class Hidden
+    
+    def to_html(list_of_values, data, actor2els)
+      H {%{
+        %input{ :type => 'hidden', :value => @value, :name => @name, :id => @id }
+      }}
+    end
+    
   end
   
   class Conditional
     
     def to_html(list_of_values, data, actor2els)
-      @name = "actor#{actor2els.length}"
+      @name = "rformationActor#{actor2els.length}"
       actor2els[self] = @fields_of_interest
       H {%{
         %div{ :style => "display: none; ", :id => @name }

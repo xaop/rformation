@@ -42,8 +42,24 @@ render_form = proc do |req, resp|
 end
 
 test_form = proc do |req, resp|
-  resp['ContentType'] = 'text/plain'
-  resp.body = req.query.inject({}) { |h, (k, v)| h[k] = v.list ; h }.to_yaml
+  params = req.query.inject({}) { |h, (k, v)| h[k] = v.list.first ; h }
+  File.open("/tmp/form_submitted_data", "w") { |f| f << params.to_yaml }
+  snippet = `ruby test/test_submit_form.rb /tmp/form_definition /tmp/form_submitted_data`
+  resp['ContentType'] = 'text/html'
+  resp.body = <<-END
+    <html>
+      <head>
+      </head>
+      <body>
+        #{snippet}
+      </body>
+    </html>
+  END
+end
+
+preform = proc do |req, resp|
+  resp['ContentType'] = 'text/html'
+  resp.body = File.read("test/form.html")
 end
 
 s = HTTPServer.new(:Port => 2000)
@@ -51,6 +67,7 @@ s.mount('/', HTTPServlet::ProcHandler.new(form_entry))
 s.mount('/test.css', HTTPServlet::ProcHandler.new(css))
 s.mount('/render_form', HTTPServlet::ProcHandler.new(render_form))
 s.mount('/test_form', HTTPServlet::ProcHandler.new(test_form))
+s.mount('/preform', HTTPServlet::ProcHandler.new(preform))
 
 trap("INT") { s.shutdown }
 s.start

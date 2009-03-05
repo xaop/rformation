@@ -4,57 +4,72 @@
   font-weight: bold;
 }
 
-.radio_list{
-  float: left;
-}
-
-.radio_list_clear {
-  clear: left;
-}
-
-.text, .select, .checkbox {
-  width: 180px;
-  margin-bottom: 5px;
-}
-
-.radio_list, .checkbox_container {
-  width: 176px;
-  margin-bottom: 5px;
-}
-
-.valid .text, .valid .select, .valid .radio_list, .valid .checkbox_container {
-  border: 2px solid #88FF88;
-  background-color: #EEFFEE;
-}
-
-.invalid .text, .invalid .select, .invalid .radio_list, .valid .checkbox_container {
-  border: 2px solid #FF8888;
-  background-color: #FFEEEE;
-}
-
-.radio_option, .radio {
-  vertical-align: middle;
-}
-
-textarea{
-  width: 250px;
+textarea {
+  width: 100%;
   height: 150px;
 }
 
-/*.boxes{
-  width: 1em;
-}
-*/
 #submitbutton{
   margin-left: 120px;
   margin-top: 5px;
   width: 90px;
 }
 
-br{
-  clear: left;
+.error_message {
+  float: left;
+  color: red;
+  margin-left: 0.5em;
+}
+
+#rformationGlobalError .globalErrorMessage {
+  display: none;
+}
+
+#rformationGlobalError.has_errors .globalErrorMessage {
+  display: inline;
+  color: red;
+  margin-left: 0.5em;
 }
 
 .info {
   font-style: italic;
+}
+
+.file, .select, .text, .radio_list, .checkbox {
+  float: left;
+}
+
+.radio_list_clear, .select_clear, .file_clear, .text_clear, .checkbox_clear {
+  clear: left;
+}
+
+.text, .select, .radio_list, .checkbox, .file {
+  width: 180px;
+  margin-bottom: 5px;
+}
+
+.text input, .select select, .file input {
+  width: 100%;
+}
+
+.valid .text, .valid .select, .valid .radio_list, .valid .checkbox, .valid .file {
+  border: 2px solid #88FF88;
+  background-color: #DDFFDD;
+}
+
+.invalid .text, .invalid .select, .invalid .radio_list, .invalid .checkbox, .invalid .file {
+  border: 2px solid #FF8888;
+  background-color: #FFEEEE;
+}
+
+.valid .text *, .valid .select *, .valid .radio_list *, .valid .checkbox *, .valid .file * {
+  background-color: #DDFFDD;
+}
+
+.invalid .text *, .invalid .select *, .invalid .radio_list *, .invalid .checkbox *, .invalid .file * {
+  background-color: #FFEEEE;
+}
+
+.radio_option, .radio {
+  vertical-align: middle;
 }
