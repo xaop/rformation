@@ -339,6 +339,27 @@ module RFormation
       super(lists_of_values, parent, &(blk || proc {}))
     end
     
+    def min_size(min_size)
+      @min_size = parse_size(min_size)
+      def self.min_size(*a) ; raise FormError, "specified a minimum size twice" ; end
+    end
+    
+    def max_size(max_size)
+      @max_size = parse_size(max_size)
+      def self.max_size(*a) ; raise FormError, "specified a maximum size twice" ; end
+    end
+    
+    def parse_size(size)
+      if Integer === size
+        size
+      elsif /\A(\d+)(kb?|mb?|gb?)\z/i === size
+        multiplier = { "kb" => 2**10, "mb" => 2**20, "gb" => 2**30, "k" => 2**10, "m" => 2**20, "g" => 2**30 }[$2]
+        $1.to_i * multiplier
+      else
+        raise FormError, "unrecognize file size"
+      end
+    end
+    
   end
   
   register_type :file, File

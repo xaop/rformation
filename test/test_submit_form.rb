@@ -1,5 +1,6 @@
 begin
   $LOAD_PATH.unshift('lib')
+  require 'test/uploaded_file'
   require 'rformation'
   require 'yaml'
 

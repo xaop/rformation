@@ -61,7 +61,7 @@ module RFormation
     
     def validate_fields(data, result, errors)
       @rb_conditions.zip(@error_messages).each do |cond, error_msg|
-        errors[@name] << error_msg unless cond[data]
+        errors[@name] << error_msg unless eval(cond)
       end
       super
     end
@@ -88,10 +88,33 @@ module RFormation
     
   end
   
+  class File
+
+    def validate_fields(data, result, errors)
+      if d = data[@name] and !d.is_a?(String)
+        uploaded_data = d.read
+        original_file_name = d.original_filename
+        content_type = d.content_type
+        size = uploaded_data.size
+        result[@name] = {
+          :data => uploaded_data,
+          :original_file_name => original_file_name,
+          :content_type => content_type,
+          :file_size => size
+        }
+        errors[@name] << "smaller than #{@min_size}" if @min_size && @min_size > size
+        errors[@name] << "larger than #{@max_size}" if @max_size && @max_size < size
+      else
+        result[@name] = nil
+      end
+    end
+    
+  end
+  
   class Conditional
     
     def validate_fields(data, result, errors)
-      if @rb_condition[data]
+      if eval(@rb_condition)
         super
       end
     end
@@ -107,7 +130,7 @@ module RFormation
     class Root
 
       def to_rb(element_info)
-        eval "proc { |data| #{condition.to_rb(element_info)} }"
+        condition.to_rb(element_info)
       end
 
     end

@@ -57,11 +57,6 @@ test_form = proc do |req, resp|
   END
 end
 
-preform = proc do |req, resp|
-  resp['ContentType'] = 'text/html'
-  resp.body = File.read("test/form.html")
-end
-
 s = HTTPServer.new(:Port => 2000)
 s.mount('/', HTTPServlet::ProcHandler.new(form_entry))
 s.mount('/test.css', HTTPServlet::ProcHandler.new(css))
