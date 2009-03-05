@@ -1,7 +1,7 @@
 require 'rubygems'
 require 'rake/gempackagetask'
 
-PKG_VERSION = File.read("VERSION")
+PKG_VERSION = File.read("VERSION").strip
 
 spec = Gem::Specification.new do |s|
   s.platform = Gem::Platform::RUBY
