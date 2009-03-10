@@ -43,8 +43,9 @@ end
 
 post '/test_form' do
   data = params.inject({}) do |h, (k, v)|
-    if v.is_a?(Hash)
-      h[k] = UploadedFile.new(v[:tempfile].read, v[:name], v[:type])
+    if v.is_a?(Hash) && v.has_key?(:tempfile)
+      p v
+      h[k] = UploadedFile.new(v[:tempfile].read, v[:filename], v[:type])
     else
       h[k] = v
     end

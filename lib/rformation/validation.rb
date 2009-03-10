@@ -48,7 +48,7 @@ module RFormation
   module Named
     
     def validate_fields(data, result, errors)
-      result[@name] = data[@name]
+      set_value_by_trail(result, @object_trail, fetch_value_by_trail(data, @object_trail))
     end
     
     def rb_string_value
@@ -75,7 +75,7 @@ module RFormation
   class CheckBox
     
     def validate_fields(data, result, errors)
-      result[@name] = data[@name] ? 1 : 0
+      set_value_by_trail(result, @object_trail, !!fetch_value_by_trail(data, @object_trail))      
     end
     
     def rb_boolean_value
@@ -91,7 +91,7 @@ module RFormation
   class File
 
     def validate_fields(data, result, errors)
-      if d = data[@name] and !d.is_a?(String)
+      if d = fetch_value_by_trail(data, @object_trail) and !d.is_a?(String)
         uploaded_data = d.read
         original_file_name = d.original_filename
         content_type = d.content_type

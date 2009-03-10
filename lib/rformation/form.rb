@@ -21,11 +21,9 @@ module RFormation
   
   class Element
     
-    def initialize(lists_of_values, parent, &blk)
-      @lists_of_values = lists_of_values
+    def initialize(parent, &blk)
       @parent = parent
       instance_eval(&blk)
-      @lists_of_values = nil
     end
     
     def register_element(element, name)
@@ -34,6 +32,45 @@ module RFormation
     
     def register_resolver(&resolver)
       @parent.register_resolver(&resolver)
+    end
+    
+    def fetch_value_by_trail(data, trail, default = nil)
+      res = data
+      trail.each do |k|
+        if res.is_a?(Hash)
+          return default unless res.has_key?(k)
+          res = res[k]
+        else
+          return default unless res.respond_to?(k)
+          res = res.send(k)
+        end
+      end
+      res
+    end
+    
+    def set_value_by_trail(data, trail, value)
+      trail[0..-2].each do |k|
+        data = data[k] ||= {}
+      end
+      data[trail[-1]] = value
+    end
+    
+    # Context-based programming. Simplifies these tree-walking
+    # algorithms.
+    def context
+      Thread.current[:rformation_context] ||= {}
+    end
+    
+    def context=(context)
+      Thread.current[:rformation_context] = context
+    end
+    
+    def with_context(map)
+      old_context = self.context
+      self.context = old_context.merge(map)
+      yield
+    ensure
+      self.context = old_context
     end
     
   end
@@ -54,7 +91,7 @@ module RFormation
   def self.register_type(name, cl)
     ContainerElement.class_eval %{
       def #{name}(*a, &blk)
-        @items << #{cl}.new(@lists_of_values, self, *a, &blk)
+        @items << #{cl}.new(self, *a, &blk)
       end
     }
   end
@@ -63,9 +100,8 @@ module RFormation
   module Labeled
     
     def initialize(*a)
-      @label = nil
+      @label = @name
       super
-      @label ||= @name
     end
     
     def label(label)
@@ -82,6 +118,10 @@ module RFormation
     
     def initialize(*a)
       super
+      @object_trail = ((context[:object_trail] || []) + [@name])
+      if prefix = context[:object_prefix]
+        @name = "#{prefix}[#{@name}]"
+      end
       @id, @variable = register_element(self, @name)
     end
     
@@ -154,8 +194,10 @@ module RFormation
       
       @elements = {}
       @resolvers = []
-      super(lists_of_values, nil) do
-        eval_string(str)
+      with_context(:lists_of_values => lists_of_values) do
+        super(nil) do
+          eval_string(str)
+        end
       end
       @resolvers.each { |resolver| resolver.call(@elements) }
       @resolvers = nil
@@ -200,9 +242,9 @@ module RFormation
   # A group with a caption
   class Group < ContainerElement
 
-    def initialize(lists_of_values, parent, caption, &blk)
+    def initialize(parent, caption, &blk)
       @caption = caption
-      super(lists_of_values, parent, &blk)
+      super(parent, &blk)
     end
     
   end
@@ -222,7 +264,7 @@ module RFormation
     #       how methods will behave once a given method is called,
     #       but at the moment it is a bit messy. Also, it is not entirely
     #       DRY.
-    def initialize(lists_of_values, parent, name, type = nil, &blk)
+    def initialize(parent, name, type = nil, &blk)
       @name = name
       @entries = []
       @has_id = {}
@@ -246,7 +288,7 @@ module RFormation
         else
           def self.values(generator)
             @generator = generator
-            @lists_of_values[generator] or raise FormError, "list of values named #{generator} not found"
+            context[:lists_of_values][generator] or raise FormError, "list of values named #{generator} not found"
             def self.values ; raise FormError, "specified a list of values twice" ; end
             def self.value(*a) ; raise FormError, "using pre-defined list of values so cannot use this option" ; end
           end
@@ -281,7 +323,7 @@ module RFormation
       else
         raise FormError, "illegal specifier #{type.inspect} for id generation (should be one of :auto_number, :auto_id, :self)"
       end
-      super(lists_of_values, parent, &blk)
+      super(parent, &blk)
     end
     
     def entries(lists_of_values)
@@ -309,12 +351,12 @@ module RFormation
     include Labeled
     include Requirable
     
-    def initialize(lists_of_values, parent, name, *a, &blk)
+    def initialize(parent, name, *a, &blk)
       @multi = a.delete(:multi)
       a.empty? or raise FormError, "unknown options #{a.inspect}"
       @name = name
       @value = nil
-      super(lists_of_values, parent, &(blk || proc {}))
+      super(parent, &(blk || proc {}))
     end
     
     def value(value)
@@ -334,9 +376,9 @@ module RFormation
     include Labeled
     include Requirable
     
-    def initialize(lists_of_values, parent, name, &blk)
+    def initialize(parent, name, &blk)
       @name = name
-      super(lists_of_values, parent, &(blk || proc {}))
+      super(parent, &(blk || proc {}))
     end
     
     def min_size(min_size)
@@ -367,9 +409,9 @@ module RFormation
   # A field that just displays some informative text.
   class Info < Element
     
-    def initialize(lists_of_values, parent, text)
+    def initialize(parent, text)
       @text = text
-      super(lists_of_values, parent) {}
+      super(parent) {}
     end
     
   end
@@ -381,9 +423,9 @@ module RFormation
     
     include Labeled
 
-    def initialize(lists_of_values, parent, url)
+    def initialize(parent, url)
       @name = @url = url
-      super(lists_of_values, parent)
+      super(parent)
     end
     
   end
@@ -397,10 +439,10 @@ module RFormation
     include Validated
     include Labeled
     
-    def initialize(lists_of_values, parent, name, &blk)
+    def initialize(parent, name, &blk)
       @name = name
       @on_by_default = nil
-      super(lists_of_values, parent, &(blk || proc {}))
+      super(parent, &(blk || proc {}))
     end
     
     # These two methods are there for convenience so you can say "default on"
@@ -426,7 +468,7 @@ module RFormation
     
     include Named
     
-    def initialize(lists_of_values, parent, name, value)
+    def initialize(parent, name, value)
       @name = name
       @value = value
     end
@@ -435,10 +477,28 @@ module RFormation
   
   register_type :hidden, Hidden
   
+  class Object < ContainerElement
+    
+    def initialize(parent, name, root = false, &blk)
+      @name = name
+      @root = root
+      old_object_prefix = context[:object_prefix]
+      old_object_trail = context[:object_trail] || []
+      object_prefix = (root || !old_object_prefix) ? name : "#{old_object}[#{name}]"
+      object_trail = (old_object_trail << name)
+      with_context(:object_prefix => object_prefix, :object_trail => object_trail) do
+        super(parent, &blk)
+      end
+    end
+    
+  end
+  
+  register_type :object, Object
+  
   # The portion included in a condition is shown conditionally.
   class Conditional < ContainerElement
     
-    def initialize(lists_of_values, parent, condition, &blk)
+    def initialize(parent, condition, &blk)
       @condition = condition
       @line_number = FormError.extract_line_number(caller)
       
@@ -447,7 +507,7 @@ module RFormation
         raise FormError.new(parser.failure_reason, @line_number)
       end
 
-      super(lists_of_values, parent, &blk)
+      super(parent, &blk)
       register_resolver do |element_info|
         begin
           @fields_of_interest = @parsed_condition.resolve(element_info)

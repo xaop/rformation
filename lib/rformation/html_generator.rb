@@ -8,13 +8,7 @@ module RFormation
     
     def to_html(options = {})
       list_of_values = options.delete(:lists_of_values) || proc {}
-      bare_data = options.delete(:data) || {}
-      # Make sure we can always work with a hash-like interface
-      if bare_data.is_a?(Hash)
-        data = bare_data
-      else
-        data = Hash.new { |h, k| h[k] = bare_data.send(k) }
-      end
+      data = options.delete(:data) || {}
       options.empty? or raise "unknown options #{options.keys.join(", ")}"
       
       actor2els = {}
@@ -193,7 +187,7 @@ module RFormation
   class DropdownSelect
     
     def to_html(list_of_values, data, actor2els)
-      selected = data[@name]
+      selected = fetch_value_by_trail(data, @object_trail)
       content = H {%{
         %label.normal_label{ :for => @id }= h @label
         %div.select
@@ -261,7 +255,7 @@ module RFormation
     
     def to_html(list_of_values, data, actor2els)
       @actual_values = entries(list_of_values)
-      selected = data[@name]
+      selected = fetch_value_by_trail(data, @object_trail)
       content = H {%{
         .radio_label= h @label
         .radio_list
@@ -323,7 +317,7 @@ module RFormation
   class Text
     
     def to_html(list_of_values, data, actor2els)
-      value = data[@name] || @value
+      value = fetch_value_by_trail(data, @object_trail, @value)
       content = H {%{
         %label.normal_label{ :for => @id }= h @label
         %div.text
@@ -379,8 +373,7 @@ module RFormation
   class CheckBox
     
     def to_html(list_of_values, data, actor2els)
-      on = @on_by_default
-      on = data[@name] if data.has_key?(@name)
+      on = fetch_value_by_trail(data, @object_trail, @on_by_default)
       content = H {%{
         %label.normal_label{ :for => @id }= h @label
         .checkbox
@@ -412,8 +405,20 @@ module RFormation
   class Hidden
     
     def to_html(list_of_values, data, actor2els)
+      value = fetch_value_by_trail(data, @object_trail, @value)
       H {%{
-        %input{ :type => 'hidden', :value => @value, :name => @name, :id => @id }
+        %input{ :type => 'hidden', :value => value, :name => @name, :id => @id }
+      }}
+    end
+    
+  end
+  
+  class Object
+    
+    def to_html(list_of_values, data, actor2els)
+      H {%{
+        - @items.each do |item|
+          %div= item.to_html(list_of_values, data, actor2els)
       }}
     end
     
