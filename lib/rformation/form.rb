@@ -486,6 +486,7 @@ module RFormation
     def initialize(parent, name, value)
       @name = name
       @value = value
+      super(parent) {}
     end
     
   end
