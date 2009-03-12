@@ -489,6 +489,10 @@ module RFormation
       super(parent) {}
     end
     
+    def js_setup_for_element(actors)
+      # Nothing to do as a hidden field normally should not change value.
+    end
+
   end
   
   register_type :hidden, Hidden
