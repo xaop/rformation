@@ -292,7 +292,7 @@ module RFormation
           @default ||= default
         end
       when :identity, nil
-        if type == :identity
+        if @type == :identity
           def self.values ; raise FormError, "using user-defined naming so cannot use this option" ; end
         else
           def self.values(generator)
