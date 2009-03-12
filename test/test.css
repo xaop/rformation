@@ -73,3 +73,7 @@ textarea {
 .radio_option, .radio {
   vertical-align: middle;
 }
+
+.green {
+  color: green;
+}

@@ -23,6 +23,7 @@ module RFormation
     
     def initialize(parent, &blk)
       @parent = parent
+      @class = ""
       instance_eval(&blk)
     end
     
@@ -72,6 +73,12 @@ module RFormation
     ensure
       self.context = old_context
     end
+    
+    def field_class(*classes)
+      @class << " " << classes.join(" ")
+    end
+    
+    alias field_classes field_class
     
   end
   

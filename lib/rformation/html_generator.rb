@@ -104,7 +104,7 @@ module RFormation
     def to_html(actor2els, content)
       if @validations.empty?
         H {%{
-          %div
+          %div{ :class => @class }
             = content
         }}
       else
@@ -113,7 +113,7 @@ module RFormation
         @flag_id = "rformationInError#{actor2els.length}"
         actor2els[self] = @fields_of_interest
         H {%{
-          %div{ :id => @container_id }
+          %div{ :id => @container_id, :class => @class }
             = content
             %div.error_message{ :id => @messages_id }
         }}
@@ -175,7 +175,7 @@ module RFormation
     
     def to_html(list_of_values, data, actor2els)
       H {%{
-        %fieldset
+        %fieldset{ :class => @class }
           %legend= h @caption
           - @items.each do |item|
             %div= item.to_html(list_of_values, data, actor2els)
@@ -353,7 +353,7 @@ module RFormation
     
     def to_html(list_of_values, data, actor2els)
       H {%{
-        %div.info= @text
+        %div{ :class => "info " + (@class || "") }= @text
       }}
     end
     
@@ -363,7 +363,7 @@ module RFormation
     
     def to_html(list_of_values, data, actor2els)
       H {%{
-        %div.link
+        %div{ :class => "link " + (@class || "") }
           %a{ :href => @url }= h @label
       }}
     end
@@ -430,7 +430,7 @@ module RFormation
       @name = "rformationActor#{actor2els.length}"
       actor2els[self] = @fields_of_interest
       H {%{
-        %div{ :style => "display: none; ", :id => @name }
+        %div{ :style => "display: none; ", :id => @name, :class => @class }
           - @items.each do |item|
             %div= item.to_html(list_of_values, data, actor2els)
       }}
