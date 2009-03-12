@@ -191,7 +191,7 @@ module RFormation
       content = H {%{
         %label.normal_label{ :for => @id }= h @label
         %div.select
-          %select{ :name => @name, :id => @id }
+          %select{ :name => @name, :id => @id, :multiple => @multivalue ? "multiple" : nil }
             - entries(list_of_values).each do |id, label, default|
               - if selected
                 - default = (id == selected)
@@ -200,7 +200,7 @@ module RFormation
       H {%{
         = super(actor2els, content)
         .select_clear
-      }}      
+      }}
     end
     
     def js_string_value

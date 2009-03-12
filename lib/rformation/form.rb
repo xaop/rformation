@@ -122,6 +122,7 @@ module RFormation
       if prefix = context[:object_prefix]
         @name = "#{prefix}[#{@name}]"
       end
+      @name = @name + "[]" if @multivalue
       @id, @variable = register_element(self, @name)
     end
     
@@ -264,14 +265,15 @@ module RFormation
     #       how methods will behave once a given method is called,
     #       but at the moment it is a bit messy. Also, it is not entirely
     #       DRY.
-    def initialize(parent, name, type = nil, &blk)
+    def initialize(parent, name, *a, &blk)
+      @type = a.delete(:auto_number) || a.delete(:identity) || a.delete(:auto_id) || a.delete(:self)
+      a.empty? or raise FormError, "unknown options #{a.inspect}"
       @name = name
       @entries = []
       @has_id = {}
       @generator = nil
       @default = nil
-      @type = type
-      case type
+      case @type
       when :auto_number
         def self.values ; raise FormError, "using user-defined naming so cannot use this option" ; end
         def self.value(label, *a)
@@ -333,6 +335,12 @@ module RFormation
   end
   
   class DropdownSelect < Select
+    
+    def initialize(parent, name, *a, &blk)
+      @multivalue = a.delete(:multi)
+      super
+    end
+    
   end
   
   register_type :select, DropdownSelect

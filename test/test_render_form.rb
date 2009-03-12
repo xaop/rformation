@@ -18,7 +18,7 @@ rescue RFormation::FormError => e
   puts "<pre>#{e.backtrace.join("\n")}</pre>"
 rescue Exception => e
   puts "<pre>"
-  puts h(e.message)
-  puts e.backtrace.map { |t| h(t) }
+  puts e.message
+  puts e.backtrace
   puts "</pre>"
 end
