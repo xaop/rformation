@@ -111,6 +111,20 @@ module RFormation
     
   end
   
+  class Info
+    
+    def validate_fields(data, result, errors)
+    end
+    
+  end
+  
+  class Link
+
+    def validate_fields(data, result, errors)
+    end
+    
+  end
+  
   class Conditional
     
     def validate_fields(data, result, errors)
