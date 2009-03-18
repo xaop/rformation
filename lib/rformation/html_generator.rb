@@ -11,36 +11,30 @@ module RFormation
       data = options.delete(:data) || {}
       options.empty? or raise "unknown options #{options.keys.join(", ")}"
       
-      actor2els = {}
-      # This call does 2 things
-      # * it renders the fields to HTML
-      # * it collects the active elements (actors) in a Hash called
-      #   actors that maps the name of an actor onto the list of
-      #   elements that influence its behavior. For instance a
-      #   condition that refers to element1 and element2 would
-      #   add an entry #<Condition:...> => ["element1", "element2"].
-      fields = fields_to_html(list_of_values, data, actor2els)
-      actors = actors_to_html(list_of_values, actor2els)
-      H {%{
-        = fields
-        = actors
-      }}
+      with_context :list_of_values => list_of_values, :data => data do
+        fields = fields_to_html
+        actors = actors_to_html
+        H {%{
+          = fields
+          = actors
+        }}
+      end
     end
     
-    def fields_to_html(list_of_values, data, actor2els)
+    def fields_to_html
       H {%{
         - @items.each do |item|
-          %div= item.to_html(list_of_values, data, actor2els)
+          %div= item.to_html
       }}
     end
     
-    def actors_to_html(list_of_values, actor2els)
-      # The actors variable contains the map of actors onto
+    def actors_to_html
+      # The @actor2els variable contains the map of actors onto
       # the elements that influence it, but here we need the
-      # inverse, i.e., a hash that maps an element onto all
+      # inverse too, i.e., a hash that maps an element onto all
       # the actors it influences.
       el2actors = Hash.new { |h, k| h[k] = [] }
-      actor2els.each do |actor, els|
+      @actor2els.each do |actor, els|
         els.each do |el|
           el2actors[el] << actor
         end
@@ -50,7 +44,7 @@ module RFormation
           = js_error_reporting
           - @elements.each do |name, (element, variable)|
             = element.js_setup_for_element(el2actors[variable])
-          - actor2els.each do |actor, elements|
+          - @actor2els.each do |actor, elements|
             = actor.js_setup_for_actor
       }}
     end
@@ -101,17 +95,16 @@ module RFormation
   
   module Validated
     
-    def to_html(actor2els, content)
+    def to_html(content)
       if @validations.empty?
         H {%{
           %div{ :class => @class }
             = content
         }}
       else
-        @container_id = "rformationActor#{actor2els.length}"
-        @messages_id = "rformationMessages#{actor2els.length}"
-        @flag_id = "rformationInError#{actor2els.length}"
-        actor2els[self] = @fields_of_interest
+        @container_id = "rformationActor#{@actor_index}"
+        @messages_id = "rformationMessages#{@actor_index}"
+        @flag_id = "rformationInError#{@actor_index}"
         H {%{
           %div{ :id => @container_id, :class => @class }
             = content
@@ -120,8 +113,8 @@ module RFormation
       end
     end
     
-    def translate_validations_to_js(element_info)
-      @js_conditions = @parsed_validations.map { |validation| validation.to_js(element_info) }
+    def translate_validations_to_js
+      @js_conditions = @parsed_validations.map { |validation| validation.to_js }
     end
     
     def js_update
@@ -158,6 +151,7 @@ module RFormation
     end
     
     def js_separate_validation_checks(condition, message)
+      message ||= "error in field"
       <<-END
         if (!(#{condition})) {
           errorMessages.push(#{message.inspect});
@@ -173,12 +167,12 @@ module RFormation
   
   class Group
     
-    def to_html(list_of_values, data, actor2els)
+    def to_html
       H {%{
         %fieldset{ :class => @class }
           %legend= h @caption
           - @items.each do |item|
-            %div= item.to_html(list_of_values, data, actor2els)
+            %div= item.to_html
       }}
     end
     
@@ -186,19 +180,19 @@ module RFormation
   
   class DropdownSelect
     
-    def to_html(list_of_values, data, actor2els)
-      selected = fetch_value_by_trail(data, @object_trail)
+    def to_html
+      selected = fetch_value_by_trail
       content = H {%{
         %label.normal_label{ :for => @id }= h @label
         %div.select
           %select{ :name => @name, :id => @id, :multiple => @multivalue ? "multiple" : nil }
-            - entries(list_of_values).each do |id, label, default|
+            - entries(context[:list_of_values]).each do |id, label, default|
               - if selected
                 - default = (id == selected)
               %option{ default ? { :selected => "selected" } : {}, :value => id }= h label
       }}
       H {%{
-        = super(actor2els, content)
+        = super(content)
         .select_clear
       }}
     end
@@ -253,9 +247,9 @@ module RFormation
       result
     end
     
-    def to_html(list_of_values, data, actor2els)
-      @actual_values = entries(list_of_values)
-      selected = fetch_value_by_trail(data, @object_trail)
+    def to_html
+      @actual_values = entries(context[:list_of_values])
+      selected = fetch_value_by_trail
       content = H {%{
         .radio_label= h @label
         .radio_list
@@ -268,7 +262,7 @@ module RFormation
               %label.radio_text{ :for => option_id }= h label
       }}
       H {%{
-        = super(actor2els, content)
+        = super(content)
         .radio_list_clear
       }}      
     end
@@ -282,14 +276,14 @@ module RFormation
   
   class File
     
-    def to_html(list_of_values, data, actor2els)
+    def to_html
       content = H {%{
         %label.normal_label{ :for => @id }= h @label
         %div.file
           %input{ :type => 'file', :id => @id, :name => @name }
       }}
       H {%{
-        = super(actor2els, content)
+        = super(content)
         .file_clear
       }}      
     end
@@ -316,8 +310,8 @@ module RFormation
   
   class Text
     
-    def to_html(list_of_values, data, actor2els)
-      value = fetch_value_by_trail(data, @object_trail, @value)
+    def to_html
+      value = fetch_value_by_trail(@value)
       content = H {%{
         %label.normal_label{ :for => @id }= h @label
         %div.text
@@ -327,7 +321,7 @@ module RFormation
             %input{ :type => 'text', :id => @id, :name => @name, :value => value }
       }}
       H {%{
-        = super(actor2els, content)
+        = super(content)
         .text_clear
       }}      
     end
@@ -351,7 +345,7 @@ module RFormation
   
   class Info
     
-    def to_html(list_of_values, data, actor2els)
+    def to_html
       H {%{
         %div{ :class => "info " + (@class || "") }= @text
       }}
@@ -361,7 +355,7 @@ module RFormation
   
   class Link
     
-    def to_html(list_of_values, data, actor2els)
+    def to_html
       H {%{
         %div{ :class => "link " + (@class || "") }
           %a{ :href => @url }= h @label
@@ -372,15 +366,15 @@ module RFormation
   
   class CheckBox
     
-    def to_html(list_of_values, data, actor2els)
-      on = fetch_value_by_trail(data, @object_trail, @on_by_default)
+    def to_html
+      on = fetch_value_by_trail(@on_by_default)
       content = H {%{
         %label.normal_label{ :for => @id }= h @label
         .checkbox
           %input{ on ? { :checked => "checked" } : {}, :type => 'checkbox', :id => @id, :name => @name }
       }}
       H {%{
-        = super(actor2els, content)
+        = super(content)
         .checkbox_clear
       }}      
     end
@@ -404,8 +398,8 @@ module RFormation
   
   class Hidden
     
-    def to_html(list_of_values, data, actor2els)
-      value = fetch_value_by_trail(data, @object_trail, @value)
+    def to_html
+      value = fetch_value_by_trail(@value)
       H {%{
         %input{ :type => 'hidden', :value => value, :name => @name, :id => @id }
       }}
@@ -415,10 +409,10 @@ module RFormation
   
   class Object
     
-    def to_html(list_of_values, data, actor2els)
+    def to_html
       H {%{
         - @items.each do |item|
-          %div= item.to_html(list_of_values, data, actor2els)
+          %div= item.to_html
       }}
     end
     
@@ -426,18 +420,17 @@ module RFormation
   
   class Conditional
     
-    def to_html(list_of_values, data, actor2els)
-      @name = "rformationActor#{actor2els.length}"
-      actor2els[self] = @fields_of_interest
+    def to_html
+      @name = "rformationActor#{@actor_index}"
       H {%{
         %div{ :style => "display: none; ", :id => @name, :class => @class }
           - @items.each do |item|
-            %div= item.to_html(list_of_values, data, actor2els)
+            %div= item.to_html
       }}
     end
     
-    def translate_condition_to_js(element_info)
-      @js_condition = @parsed_condition.to_js(element_info)
+    def translate_condition_to_js
+      @js_condition = @parsed_condition.to_js
     end
     
     def js_setup_for_actor
@@ -464,31 +457,31 @@ module RFormation
 
     class Root
 
-      def to_js(element_info)
-        condition.to_js(element_info)
+      def to_js
+        condition.to_js
       end
 
     end
   
     class Or
 
-      def to_js(element_info)
-        '(%s) || (%s)' % [exp1.to_js(element_info), exp2.to_js(element_info)]
+      def to_js
+        '(%s) || (%s)' % [exp1.to_js, exp2.to_js]
       end
 
     end
   
     class And
 
-      def to_js(element_info)
-        '(%s) && (%s)' % [exp1.to_js(element_info), exp2.to_js(element_info)]
+      def to_js
+        '(%s) && (%s)' % [exp1.to_js, exp2.to_js]
       end
 
     end
   
     class Not
 
-      def to_js(element_info)
+      def to_js
         '!(%s)' % exp.to_js
       end
 
@@ -496,7 +489,7 @@ module RFormation
   
     class Equals
 
-      def to_js(element_info)
+      def to_js
         "(#{field.js_string_value}) == #{value.inspect}"
       end
 
@@ -504,7 +497,7 @@ module RFormation
   
     class NotEquals
 
-      def to_js(element_info)
+      def to_js
         "(#{field.js_string_value}) != #{value.inspect}"
       end
 
@@ -512,7 +505,7 @@ module RFormation
   
     class IsOn
 
-      def to_js(element_info)
+      def to_js
         field.js_boolean_value
       end
 
@@ -520,7 +513,7 @@ module RFormation
   
     class IsOff
 
-      def to_js(element_info)
+      def to_js
         "!(#{field.js_boolean_value})"
       end
 
@@ -528,7 +521,7 @@ module RFormation
     
     class IsEmpty
       
-      def to_js(element_info)
+      def to_js
         "(#{field.js_string_value}).match(new RegExp('^\s*$'))"
       end
       
@@ -536,7 +529,7 @@ module RFormation
     
     class IsNotEmpty
       
-      def to_js(element_info)
+      def to_js
         "!(#{field.js_string_value}).match(new RegExp('^\s*$'))"
       end
       

@@ -7,9 +7,10 @@ begin
 
   form_spec = File.read($*[0])
   form_data = YAML.load(File.read($*[1]))
-  form = RFormation::Form.new(form_spec, :lists_of_values => proc { true })
+  form_value_lists = YAML.load(File.read($*[2]))
+  form = RFormation::Form.new(form_spec, :lists_of_values => form_value_lists)
   puts "<form action='test_form' method='post' enctype='multipart/form-data'>"
-  puts form.to_html(:data => form_data, :lists_of_values => proc { [[1, 2]] })
+  puts form.to_html(:data => form_data, :lists_of_values => form_value_lists)
   puts "<div style='clear: left; ' id='rformationGlobalError'><input type='submit' value='test form'></input><span class = 'globalErrorMessage'>there are errors<span></div>"
   puts "</form>"
 rescue RFormation::FormError => e

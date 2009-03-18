@@ -19,43 +19,8 @@ module RFormation
 
   end
   
-  class Element
-    
-    def initialize(parent, &blk)
-      @parent = parent
-      @class = ""
-      instance_eval(&blk)
-    end
-    
-    def register_element(element, name)
-      @parent.register_element(element, name)
-    end
-    
-    def register_resolver(&resolver)
-      @parent.register_resolver(&resolver)
-    end
-    
-    def fetch_value_by_trail(data, trail, default = nil)
-      res = data
-      trail.each do |k|
-        if res.is_a?(Hash)
-          return default unless res.has_key?(k)
-          res = res[k]
-        else
-          return default unless res.respond_to?(k)
-          res = res.send(k)
-        end
-      end
-      res
-    end
-    
-    def set_value_by_trail(data, trail, value)
-      trail[0..-2].each do |k|
-        data = data[k] ||= {}
-      end
-      data[trail[-1]] = value
-    end
-    
+  module Contextual
+
     # Context-based programming. Simplifies these tree-walking
     # algorithms.
     def context
@@ -72,6 +37,47 @@ module RFormation
       yield
     ensure
       self.context = old_context
+    end
+    
+  end
+  
+  class Element
+    
+    include Contextual
+    
+    def initialize(&blk)
+      @class = ""
+      instance_eval(&blk)
+    end
+    
+    def register_element(element, name)
+      context[:form].register_element(element, name)
+    end
+    
+    def register_resolver(&resolver)
+      context[:form].register_resolver(&resolver)
+    end
+    
+    def fetch_value_by_trail(default = nil)
+      res = context[:data]
+      @object_trail.each do |k|
+        if res.is_a?(Hash)
+          return default unless res.has_key?(k)
+          res = res[k]
+        else
+          return default unless res.respond_to?(k)
+          res = res.send(k)
+        end
+      end
+      res
+    end
+    
+    def set_value_by_trail(value)
+      data = context[:result]
+      @object_trail[0..-2].each do |k|
+        data = data[k] ||= {}
+      end
+      data[@object_trail[-1]] = value
     end
     
     def field_class(*classes)
@@ -98,7 +104,7 @@ module RFormation
   def self.register_type(name, cl)
     ContainerElement.class_eval %{
       def #{name}(*a, &blk)
-        @items << #{cl}.new(self, *a, &blk)
+        @items << #{cl}.new(*a, &blk)
       end
     }
   end
@@ -143,16 +149,18 @@ module RFormation
       @error_messages = []
       @parsed_validations = []
       super
-      register_resolver do |element_info|
+      register_resolver do
         begin
-          @fields_of_interest = []
+          fields_of_interest = []
           @parsed_validations.each do |parsed_validation|
-            @fields_of_interest.concat(parsed_validation.resolve(element_info))
+            fields_of_interest.concat(parsed_validation.resolve)
           end
-          @fields_of_interest.uniq!
+          fields_of_interest.uniq!
+          @actor_index = context[:actor2els].size
+          context[:actor2els][self] = fields_of_interest unless fields_of_interest.empty?
           methods.each do |m|
             if /\Atranslate_validations_to_/ === m
-              send(m, element_info)
+              send(m)
             end
           end
           @parsed_validations = nil
@@ -163,7 +171,7 @@ module RFormation
       end
     end
     
-    def validate(condition, error_message)
+    def validate(condition, error_message = nil)
       @validations << condition
       @error_messages << error_message
       @line_number = FormError.extract_line_number(caller)
@@ -194,7 +202,7 @@ module RFormation
     # as parameters.
     # The only option currently allowed is :lists_of_values which should
     # contain an object that reponds to [] and that returns true (or
-    # something that evaluates as true in Ruby) if a list of values with
+    # something that evaluates to true in Ruby) if a list of values with
     # a given name exists. This can be a hash, but also a Proc object.
     def initialize(str, options = {})
       lists_of_values = options.delete(:lists_of_values) || proc {}
@@ -202,12 +210,15 @@ module RFormation
       
       @elements = {}
       @resolvers = []
-      with_context(:lists_of_values => lists_of_values) do
-        super(nil) do
+      with_context(:lists_of_values => lists_of_values, :form => self) do
+        super() do
           eval_string(str)
         end
       end
-      @resolvers.each { |resolver| resolver.call(@elements) }
+      @actor2els = {}
+      with_context :actor2els => @actor2els, :elements => @elements do
+        @resolvers.each { |resolver| resolver.call }
+      end
       @resolvers = nil
     rescue FormError => e
       # To generate a cleaner backtrace
@@ -250,9 +261,9 @@ module RFormation
   # A group with a caption
   class Group < ContainerElement
 
-    def initialize(parent, caption, &blk)
+    def initialize(caption, &blk)
       @caption = caption
-      super(parent, &blk)
+      super(&blk)
     end
     
   end
@@ -272,7 +283,7 @@ module RFormation
     #       how methods will behave once a given method is called,
     #       but at the moment it is a bit messy. Also, it is not entirely
     #       DRY.
-    def initialize(parent, name, *a, &blk)
+    def initialize(name, *a, &blk)
       @type = a.delete(:auto_number) || a.delete(:identity) || a.delete(:auto_id) || a.delete(:self)
       a.empty? or raise FormError, "unknown options #{a.inspect}"
       @name = name
@@ -332,7 +343,7 @@ module RFormation
       else
         raise FormError, "illegal specifier #{type.inspect} for id generation (should be one of :auto_number, :auto_id, :self)"
       end
-      super(parent, &blk)
+      super(&blk)
     end
     
     def entries(lists_of_values)
@@ -343,7 +354,7 @@ module RFormation
   
   class DropdownSelect < Select
     
-    def initialize(parent, name, *a, &blk)
+    def initialize(name, *a, &blk)
       @multivalue = a.delete(:multi)
       super
     end
@@ -366,12 +377,12 @@ module RFormation
     include Labeled
     include Requirable
     
-    def initialize(parent, name, *a, &blk)
+    def initialize(name, *a, &blk)
       @multi = a.delete(:multi)
       a.empty? or raise FormError, "unknown options #{a.inspect}"
       @name = name
       @value = nil
-      super(parent, &(blk || proc {}))
+      super(&(blk || proc {}))
     end
     
     def value(value)
@@ -391,9 +402,9 @@ module RFormation
     include Labeled
     include Requirable
     
-    def initialize(parent, name, &blk)
+    def initialize(name, &blk)
       @name = name
-      super(parent, &(blk || proc {}))
+      super(&(blk || proc {}))
     end
     
     def min_size(min_size)
@@ -424,9 +435,9 @@ module RFormation
   # A field that just displays some informative text.
   class Info < Element
     
-    def initialize(parent, text)
+    def initialize(text)
       @text = text
-      super(parent) {}
+      super() {}
     end
     
   end
@@ -438,9 +449,9 @@ module RFormation
     
     include Labeled
 
-    def initialize(parent, url)
+    def initialize(url, &blk)
       @name = @url = url
-      super(parent)
+      super(&(blk || proc {}))
     end
     
   end
@@ -454,10 +465,10 @@ module RFormation
     include Validated
     include Labeled
     
-    def initialize(parent, name, &blk)
+    def initialize(name, &blk)
       @name = name
       @on_by_default = nil
-      super(parent, &(blk || proc {}))
+      super(&(blk || proc {}))
     end
     
     # These two methods are there for convenience so you can say "default on"
@@ -483,10 +494,10 @@ module RFormation
     
     include Named
     
-    def initialize(parent, name, value)
+    def initialize(name, value, &blk)
       @name = name
       @value = value
-      super(parent) {}
+      super() {}
     end
     
     def js_setup_for_element(actors)
@@ -499,7 +510,7 @@ module RFormation
   
   class Object < ContainerElement
     
-    def initialize(parent, name, root = false, &blk)
+    def initialize(name, root = false, &blk)
       @name = name
       @root = root
       old_object_prefix = context[:object_prefix]
@@ -507,7 +518,7 @@ module RFormation
       object_prefix = (root || !old_object_prefix) ? name : "#{old_object}[#{name}]"
       object_trail = (old_object_trail << name)
       with_context(:object_prefix => object_prefix, :object_trail => object_trail) do
-        super(parent, &blk)
+        super(&blk)
       end
     end
     
@@ -518,7 +529,7 @@ module RFormation
   # The portion included in a condition is shown conditionally.
   class Conditional < ContainerElement
     
-    def initialize(parent, condition, &blk)
+    def initialize(condition, &blk)
       @condition = condition
       @line_number = FormError.extract_line_number(caller)
       
@@ -527,13 +538,15 @@ module RFormation
         raise FormError.new(parser.failure_reason, @line_number)
       end
 
-      super(parent, &blk)
-      register_resolver do |element_info|
+      super(&blk)
+      register_resolver do
         begin
-          @fields_of_interest = @parsed_condition.resolve(element_info)
+          fields_of_interest = @parsed_condition.resolve
+          @actor_index = context[:actor2els].size
+          context[:actor2els][self] = fields_of_interest
           methods.each do |m|
             if /\Atranslate_condition_to_/ === m
-              send(m, element_info)
+              send(m)
             end
           end
           @parsed_condition = nil

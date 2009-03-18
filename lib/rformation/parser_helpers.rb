@@ -4,7 +4,13 @@
 # this file.
 module RFormation::ConditionAST
 
-  class Identifier < Treetop::Runtime::SyntaxNode
+  class Node < Treetop::Runtime::SyntaxNode
+    
+    include ::RFormation::Contextual
+    
+  end
+
+  class Identifier < Node
     
     def to_identifier
       text_value
@@ -16,7 +22,7 @@ module RFormation::ConditionAST
     
   end
   
-  class String < Treetop::Runtime::SyntaxNode
+  class String < Node
 
     # Helper method to convert string syntax to the contents of the string.
     # Escape sequences \a \t \f \n \r are converted to the respective
@@ -59,40 +65,40 @@ module RFormation::ConditionAST
 
   end
   
-  class Root < Treetop::Runtime::SyntaxNode
+  class Root < Node
     
     # This method is used to resolve references to form fields.
-    def resolve(element_info)
-      condition.resolve(element_info).keys
+    def resolve
+      condition.resolve.keys
     end
     
   end
   
-  class Or < Treetop::Runtime::SyntaxNode
+  class Or < Node
     
-    def resolve(element_info)
-      exp1.resolve(element_info).merge(exp2.resolve(element_info))
+    def resolve
+      exp1.resolve.merge(exp2.resolve)
     end
     
   end
   
-  class And < Treetop::Runtime::SyntaxNode
+  class And < Node
 
-    def resolve(element_info)
-      exp1.resolve(element_info).merge(exp2.resolve(element_info))
+    def resolve
+      exp1.resolve.merge(exp2.resolve)
     end
     
   end
   
-  class Not < Treetop::Runtime::SyntaxNode
+  class Not < Node
 
-    def resolve(element_info)
-      exp.resolve(element_info)
+    def resolve
+      exp.resolve
     end
     
   end
   
-  class Parentheses < Treetop::Runtime::SyntaxNode
+  class Parentheses < Node
     
     def method_missing(m, *a, &b)
       condition.send(m, *a, &b)
@@ -100,10 +106,10 @@ module RFormation::ConditionAST
     
   end
   
-  class Equals < Treetop::Runtime::SyntaxNode
+  class Equals < Node
 
-    def resolve(element_info)
-      @field, variable = element_info[f.to_identifier]
+    def resolve
+      @field, variable = context[:elements][f.to_identifier]
       @field or raise RFormation::FormError, "field #{f.to_identifier.inspect} not found"
       { variable => true }
     end
@@ -118,10 +124,10 @@ module RFormation::ConditionAST
     
   end
   
-  class NotEquals < Treetop::Runtime::SyntaxNode
+  class NotEquals < Node
     
-    def resolve(element_info)
-      @field, variable = element_info[f.to_identifier]
+    def resolve
+      @field, variable = context[:elements][f.to_identifier]
       @field or raise RFormation::FormError, "field #{f.to_identifier.inspect} not found"
       { variable => true }
     end
@@ -136,10 +142,10 @@ module RFormation::ConditionAST
     
   end
   
-  class IsOn < Treetop::Runtime::SyntaxNode
+  class IsOn < Node
     
-    def resolve(element_info)
-      @field, variable = element_info[f.to_identifier]
+    def resolve
+      @field, variable = context[:elements][f.to_identifier]
       @field or raise RFormation::FormError, "field #{f.to_identifier.inspect} not found"
       { variable => true }
     end
@@ -150,10 +156,10 @@ module RFormation::ConditionAST
     
   end
   
-  class IsOff < Treetop::Runtime::SyntaxNode
+  class IsOff < Node
 
-    def resolve(element_info)
-      @field, variable = element_info[f.to_identifier]
+    def resolve
+      @field, variable = context[:elements][f.to_identifier]
       @field or raise RFormation::FormError, "field #{f.to_identifier.inspect} not found"
       { variable => true }
     end
@@ -164,10 +170,10 @@ module RFormation::ConditionAST
     
   end
   
-  class IsEmpty < Treetop::Runtime::SyntaxNode
+  class IsEmpty < Node
     
-    def resolve(element_info)
-      @field, variable = element_info[f.to_identifier]
+    def resolve
+      @field, variable = context[:elements][f.to_identifier]
       @field or raise RFormation::FormError, "field #{f.to_identifier.inspect} not found"
       { variable => true }
     end
@@ -178,10 +184,10 @@ module RFormation::ConditionAST
 
   end
   
-  class IsNotEmpty < Treetop::Runtime::SyntaxNode
+  class IsNotEmpty < Node
 
-    def resolve(element_info)
-      @field, variable = element_info[f.to_identifier]
+    def resolve
+      @field, variable = context[:elements][f.to_identifier]
       @field or raise RFormation::FormError, "field #{f.to_identifier.inspect} not found"
       { variable => true }
     end
