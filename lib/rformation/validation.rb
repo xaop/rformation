@@ -17,7 +17,7 @@ module RFormation
       result = {}
       errors = Hash.new { |h, k| h[k] = [] }
       with_context :data => data, :result => result, :errors => errors do
-        validate_fields(data, result, errors)
+        validate_fields
       end
       raise ValidationError, errors unless errors.empty?
       result
@@ -39,9 +39,9 @@ module RFormation
   
   class ContainerElement
     
-    def validate_fields(data, result, errors)
+    def validate_fields
       @items.each do |item|
-        item.validate_fields(data, result, errors)
+        item.validate_fields
       end
     end
     
@@ -49,21 +49,22 @@ module RFormation
   
   module Named
     
-    def validate_fields(data, result, errors)
+    def validate_fields
       set_value_by_trail(fetch_value_by_trail)
     end
     
     def rb_string_value
-      "data[#{@name.inspect}] || ''"
+      "get_value_by_trail(data, #{@object_trail.inspect}) || ''"
     end
     
   end
   
   module Validated
     
-    def validate_fields(data, result, errors)
+    def validate_fields
+      data = context[:data]
       @rb_conditions.zip(@error_messages).each do |cond, error_msg|
-        errors[@name] << (error_msg || "error in field") unless eval(cond)
+        context[:errors][@label] << (error_msg || "error in field") unless eval(cond)
       end
       super
     end
@@ -76,12 +77,12 @@ module RFormation
   
   class CheckBox
     
-    def validate_fields(data, result, errors)
+    def validate_fields
       set_value_by_trail(!!fetch_value_by_trail)
     end
     
     def rb_boolean_value
-      "!!data[#{@name.inspect}]"
+      "!!get_value_by_trail(data, #{@object_trail.inspect})"
     end
     
     def rb_string_value
@@ -92,7 +93,7 @@ module RFormation
   
   class File
 
-    def validate_fields(data, result, errors)
+    def validate_fields
       if d = fetch_value_by_trail and !d.is_a?(String)
         uploaded_data = d.read
         original_file_name = d.original_filename
@@ -115,21 +116,22 @@ module RFormation
   
   class Info
     
-    def validate_fields(data, result, errors)
+    def validate_fields
     end
     
   end
   
   class Link
 
-    def validate_fields(data, result, errors)
+    def validate_fields
     end
     
   end
   
   class Conditional
     
-    def validate_fields(data, result, errors)
+    def validate_fields
+      data = context[:data]
       if eval(@rb_condition)
         super
       end

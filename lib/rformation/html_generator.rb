@@ -311,7 +311,7 @@ module RFormation
   class Text
     
     def to_html
-      value = fetch_value_by_trail(@value)
+      value = fetch_value_by_trail
       content = H {%{
         %label.normal_label{ :for => @id }= h @label
         %div.text
@@ -367,7 +367,7 @@ module RFormation
   class CheckBox
     
     def to_html
-      on = fetch_value_by_trail(@on_by_default)
+      on = fetch_value_by_trail
       content = H {%{
         %label.normal_label{ :for => @id }= h @label
         .checkbox
@@ -399,7 +399,7 @@ module RFormation
   class Hidden
     
     def to_html
-      value = fetch_value_by_trail(@value)
+      value = fetch_value_by_trail
       H {%{
         %input{ :type => 'hidden', :value => value, :name => @name, :id => @id }
       }}

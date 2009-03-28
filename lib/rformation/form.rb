@@ -58,14 +58,18 @@ module RFormation
       context[:form].register_resolver(&resolver)
     end
     
-    def fetch_value_by_trail(default = nil)
-      res = context[:data]
-      @object_trail.each do |k|
+    def fetch_value_by_trail
+      get_value_by_trail(context[:data], @object_trail)
+    end
+    
+    def get_value_by_trail(data, trail)
+      res = data
+      trail.each do |k|
         if res.is_a?(Hash)
-          return default unless res.has_key?(k)
+          return nil unless res.has_key?(k)
           res = res[k]
         else
-          return default unless res.respond_to?(k)
+          return nil unless res.respond_to?(k)
           res = res.send(k)
         end
       end
@@ -148,12 +152,16 @@ module RFormation
       @validations = []
       @error_messages = []
       @parsed_validations = []
+      @object_trail_context = context[:object_trail]
+      @object_trail_root = context[:object_trail_root]
       super
       register_resolver do
         begin
           fields_of_interest = []
-          @parsed_validations.each do |parsed_validation|
-            fields_of_interest.concat(parsed_validation.resolve)
+          with_context :object_trail => @object_trail_context, :object_trail_root => @object_trail_root do
+            @parsed_validations.each do |parsed_validation|
+              fields_of_interest.concat(parsed_validation.resolve)
+            end
           end
           fields_of_interest.uniq!
           @actor_index = context[:actor2els].size
@@ -187,8 +195,15 @@ module RFormation
   
   module Requirable
     
+    def initialize(&blk)
+      @mandatory = false
+      @mandatory_message = "is mandatory"
+      super
+      validate("%s is not empty" % RFormation::ConditionAST::String.escape_back_string_syntax(@name), @mandatory_message) if @mandatory
+    end
+    
     def mandatory
-      validate("%s is not empty" % RFormation::ConditionAST::String.escape_back_string_syntax(@name), "is mandatory")
+      @mandatory = true
     end
     
   end
@@ -204,15 +219,34 @@ module RFormation
     # contain an object that reponds to [] and that returns true (or
     # something that evaluates to true in Ruby) if a list of values with
     # a given name exists. This can be a hash, but also a Proc object.
-    def initialize(str, options = {})
+    def initialize(*a, &blk)
+      if a.last.is_a?(Hash)
+        options = a.pop
+      else
+        options = {}
+      end
+      case a.length
+      when 0
+        # Will use block
+      when 1
+        str = a.first
+        warn "block not used" if blk
+      else
+        raise ArgumentError, "wrong number of arguments"
+      end
       lists_of_values = options.delete(:lists_of_values) || proc {}
+      filename = options.delete(:filename) || "FORM_DSL"
       options.empty? or raise "unknown options #{options.keys.join(", ")}"
       
       @elements = {}
       @resolvers = []
       with_context(:lists_of_values => lists_of_values, :form => self) do
         super() do
-          eval_string(str)
+          if str
+            eval_string(str)
+          else
+            instance_eval(&blk)
+          end
         end
       end
       @actor2els = {}
@@ -220,9 +254,9 @@ module RFormation
         @resolvers.each { |resolver| resolver.call }
       end
       @resolvers = nil
-    rescue FormError => e
-      # To generate a cleaner backtrace
-      raise FormError.new(e.message, e.line_number)
+    # rescue FormError => e
+    #   # To generate a cleaner backtrace
+    #   raise FormError.new(e.message, e.line_number)
     end
 
     def register_element(element, name)
@@ -241,19 +275,19 @@ module RFormation
 
     def eval_string(str)
       eval str, nil, "FORM_DSL", 1
-    rescue Exception => e
-      # Raise a more readable error message containing a line number.
-      # Always raises a FormError no matter what specific error
-      # happened, but it does retain the message.
-      if NoMethodError === e || NameError === e
-        message = "unknown keyword #{e.name}"
-      else
-        message = e.message.dup
-      end
-      line_number = FormError.extract_line_number(e.backtrace)
-      error = FormError.new(message)
-      error.line_number = line_number
-      raise error
+    # rescue Exception => e
+    #   # Raise a more readable error message containing a line number.
+    #   # Always raises a FormError no matter what specific error
+    #   # happened, but it does retain the message.
+    #   if NoMethodError === e || NameError === e
+    #     message = "unknown keyword #{e.name}"
+    #   else
+    #     message = e.message.dup
+    #   end
+    #   line_number = FormError.extract_line_number(e.backtrace)
+    #   error = FormError.new(message)
+    #   error.line_number = line_number
+    #   raise error
     end
     
   end
@@ -464,6 +498,7 @@ module RFormation
     include Named
     include Validated
     include Labeled
+    include Requirable
     
     def initialize(name, &blk)
       @name = name
@@ -510,14 +545,16 @@ module RFormation
   
   class Object < ContainerElement
     
-    def initialize(name, root = false, &blk)
+    def initialize(name, *options, &blk)
+      @root = options.delete(:root)
+      fix = options.delete(:fix)
       @name = name
-      @root = root
       old_object_prefix = context[:object_prefix]
       old_object_trail = context[:object_trail] || []
-      object_prefix = (root || !old_object_prefix) ? name : "#{old_object}[#{name}]"
+      object_prefix = (@root || !old_object_prefix) ? name : "#{old_object_prefix}[#{name}]"
       object_trail = (old_object_trail << name)
-      with_context(:object_prefix => object_prefix, :object_trail => object_trail) do
+      object_trail_root = fix ? object_trail.dup : context[:object_trail_root]
+      with_context(:object_prefix => object_prefix, :object_trail => object_trail, :object_trail_root => object_trail_root) do
         super(&blk)
       end
     end
@@ -532,6 +569,8 @@ module RFormation
     def initialize(condition, &blk)
       @condition = condition
       @line_number = FormError.extract_line_number(caller)
+      @object_trail_context = context[:object_trail]
+      @object_trail_root = context[:object_trail_root]
       
       parser = ConditionParser.new
       unless @parsed_condition = parser.parse(@condition)
@@ -541,9 +580,10 @@ module RFormation
       super(&blk)
       register_resolver do
         begin
-          fields_of_interest = @parsed_condition.resolve
-          @actor_index = context[:actor2els].size
-          context[:actor2els][self] = fields_of_interest
+          with_context :object_trail => @object_trail_context, :object_trail_root => @object_trail_root do
+            context[:actor2els][self] = @parsed_condition.resolve
+          end
+          @actor_index = context[:actor2els].size - 1
           methods.each do |m|
             if /\Atranslate_condition_to_/ === m
               send(m)
@@ -560,5 +600,17 @@ module RFormation
   end
   
   register_type :condition, Conditional
+
+  class ContainerElement
+    
+    def otherwise(&blk)
+      if @items.last.is_a?(::RFormation::Conditional)
+        condition("not (%s)" % (@items.last.instance_eval { @condition }), &blk)
+      else
+        raise FormError.new("'otherwise' only allowed right after 'condition'")
+      end
+    end
+    
+  end
 
 end

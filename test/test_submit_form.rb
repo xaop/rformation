@@ -1,3 +1,12 @@
+module RFormation
+  class FormError < Exception
+  end
+  class ValidationError < Exception
+  end
+end
+def h(s)
+  s.to_s.gsub(/[&"><]/) { |special| { '&' => '&amp;', '>' => '&gt;', '<' => '&lt;', '"' => '&quot;' }[special] }
+end
 begin
   $LOAD_PATH.unshift('lib')
   require 'test/uploaded_file'

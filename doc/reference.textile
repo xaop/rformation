@@ -217,7 +217,7 @@ You can specified a group of input fields with a caption using the @group@ keywo
 Inside the @do@-@end@, you can define the input fields that should be shown as part of the group.
 Any input field, including grouping constructs, can be used inside the @do@-@end@.
 
-h3. Condition display of input fields
+h3. Conditional display of input fields
 
 Sometimes it is useful to only display certain input fields if other input fields have specific
 values. This can be achieved using the @condition@ keyword:
