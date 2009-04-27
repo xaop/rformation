@@ -20,6 +20,9 @@ begin
   form = RFormation::Form.new(form_spec, :lists_of_values => proc { true })
   result = form.validate_form(form_data)
   puts "<pre>"
+  puts h(form_data.to_yaml)
+  puts "</pre>"
+  puts "<pre>"
   puts h(result.to_yaml)
   puts "</pre>"
 rescue RFormation::FormError => e

@@ -1,6 +1,11 @@
 require 'rubygems'
 require 'sinatra'
 require 'test/uploaded_file'
+require 'sass'
+
+def h(s)
+  s.to_s.gsub(/[&"><]/) { |special| { '&' => '&amp;', '>' => '&gt;', '<' => '&lt;', '"' => '&quot;' }[special] }
+end
 
 get '/' do
   content_type 'text/html'
@@ -40,7 +45,7 @@ end
 
 get '/test_css' do
   content_type 'text/css'
-  body File.read('test/test.css')
+  body Sass::Engine.new(File.read('test/test.sass')).render
 end
 
 post '/test_form' do

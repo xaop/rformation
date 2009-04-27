@@ -5,39 +5,8 @@
 module RFormation::ConditionAST
 
   class Node < Treetop::Runtime::SyntaxNode
-    
-    include ::RFormation::Contextual
-    
-    def trail_to_id(trail)
-      trail[0] + trail[1..-1].map { |p| "[#{p}]" }.join
-    end
-    
-    def look_up_identifier(id, elements)
-      p context[:object_trail_root]
-      unless id[/\[/]
-        if id[0] == ?.
-          absolute = true
-          id = trail_to_id((context[:object_trail_root] || []) + id[1..-1].split(/\./))
-        else
-          id = trail_to_id(id.split(/\./))
-        end
-      end
-      unless absolute
-        object_trail = context[:object_trail]
-        trailing_id = id.sub(/\A([^\[]+)/, '[\1]')
-        (1..object_trail.length).each do |l|
-          total_id = trail_to_id(object_trail[0..-l]) + trailing_id
-          if elements.has_key?(total_id)
-            id = total_id
-            break
-          end
-        end
-      end
-      elements[id]
-    end
-    
   end
-
+  
   class Identifier < Node
     
     def to_identifier
@@ -94,136 +63,33 @@ module RFormation::ConditionAST
   end
   
   class Root < Node
-    
-    # This method is used to resolve references to form fields.
-    def resolve
-      condition.resolve.keys
-    end
-    
   end
-  
+
   class Or < Node
-    
-    def resolve
-      exp1.resolve.merge(exp2.resolve)
-    end
-    
   end
-  
+
   class And < Node
-
-    def resolve
-      exp1.resolve.merge(exp2.resolve)
-    end
-    
   end
-  
+
   class Not < Node
+  end
 
-    def resolve
-      exp.resolve
-    end
-    
-  end
-  
-  class Parentheses < Node
-    
-    def method_missing(m, *a, &b)
-      condition.send(m, *a, &b)
-    end
-    
-  end
-  
   class Equals < Node
-
-    def resolve
-      @field, variable = look_up_identifier(f.to_identifier, context[:elements])
-      @field or raise RFormation::FormError, "field #{f.to_identifier.inspect} not found"
-      { variable => true }
-    end
-    
-    def field
-      @field
-    end
-    
-    def value
-      v.to_string
-    end
-    
   end
-  
+
   class NotEquals < Node
-    
-    def resolve
-      @field, variable = look_up_identifier(f.to_identifier, context[:elements])
-      @field or raise RFormation::FormError, "field #{f.to_identifier.inspect} not found"
-      { variable => true }
-    end
-    
-    def field
-      @field
-    end
-    
-    def value
-      v.to_string
-    end
-    
   end
-  
-  class IsOn < Node
-    
-    def resolve
-      @field, variable = look_up_identifier(f.to_identifier, context[:elements])
-      @field or raise RFormation::FormError, "field #{f.to_identifier.inspect} not found"
-      { variable => true }
-    end
-    
-    def field
-      @field
-    end
-    
-  end
-  
-  class IsOff < Node
 
-    def resolve
-      @field, variable = look_up_identifier(f.to_identifier, context[:elements])
-      @field or raise RFormation::FormError, "field #{f.to_identifier.inspect} not found"
-      { variable => true }
-    end
-    
-    def field
-      @field
-    end
-    
+  class IsOn < Node
+  end
+
+  class IsOff < Node
   end
   
   class IsEmpty < Node
-    
-    def resolve
-      @field, variable = look_up_identifier(f.to_identifier, context[:elements])
-      @field or raise RFormation::FormError, "field #{f.to_identifier.inspect} not found"
-      { variable => true }
-    end
-    
-    def field
-      @field
-    end
-
   end
   
   class IsNotEmpty < Node
-
-    def resolve
-      @field, variable = look_up_identifier(f.to_identifier, context[:elements])
-      @field or raise RFormation::FormError, "field #{f.to_identifier.inspect} not found"
-      { variable => true }
-    end
-    
-    def field
-      @field
-    end
-
   end
 
 end

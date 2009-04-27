@@ -1,3 +1,13 @@
+module RFormation
+  class FormError < Exception
+  end
+  class ValidationError < Exception
+  end
+end
+def h(s)
+  s.to_s.gsub(/[&"><]/) { |special| { '&' => '&amp;', '>' => '&gt;', '<' => '&lt;', '"' => '&quot;' }[special] }
+end
+
 begin
   $LOAD_PATH.unshift('lib')
   require 'rformation'
@@ -11,15 +21,15 @@ begin
   form = RFormation::Form.new(form_spec, :lists_of_values => form_value_lists)
   puts "<form action='test_form' method='post' enctype='multipart/form-data'>"
   puts form.to_html(:data => form_data, :lists_of_values => form_value_lists)
-  puts "<div style='clear: left; ' id='rformationGlobalError'><input type='submit' value='test form'></input><span class = 'globalErrorMessage'>there are errors<span></div>"
+  puts "<input type='submit' value='test form'></input>"
   puts "</form>"
 rescue RFormation::FormError => e
-  puts "<div style='color: red'>line %d : %s</div>" % [e.line_number, e.message]
-  puts "<pre style='margin-left: 1em; '>#{form_spec}</pre>"
-  puts "<pre>#{e.backtrace.join("\n")}</pre>"
+  puts "<div style='color: red'>line %d : %s</div>" % [e.line_number, h(e.message)]
+  puts "<pre style='margin-left: 1em; '>#{h form_spec}</pre>"
+  puts "<pre>#{e.backtrace.map{ |l| h(l) }.join("\n")}</pre>"
 rescue Exception => e
   puts "<pre>"
-  puts e.message
-  puts e.backtrace
+  puts h(e.message)
+  puts e.backtrace.map{ |l| h(l) }
   puts "</pre>"
 end

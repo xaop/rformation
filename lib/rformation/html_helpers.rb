@@ -29,6 +29,7 @@ module RFormation
     def h(s)
       s.to_s.gsub(/[&"><]/) { |special| { '&' => '&amp;', '>' => '&gt;', '<' => '&lt;', '"' => '&quot;' }[special] }
     end
+    
   end
   
   (constants - ["HTMLHelpers"]).each do |c|

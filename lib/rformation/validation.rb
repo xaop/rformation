@@ -27,6 +27,35 @@ module RFormation
   
   class Element
     
+    def fetch_value_by_path(default = nil)
+      get_value_by_path(context[:data], @path, default)
+    end
+    
+    def get_value_by_path(data, trail, default = nil)
+      res = data
+      trail.each do |k|
+        if res.is_a?(Hash)
+          return default unless res.has_key?(k)
+          res = res[k]
+        else
+          return default unless res.respond_to?(k)
+          res = res.send(k)
+        end
+      end
+      res
+    end
+    
+    def set_value_by_path(value)
+      data = context[:result]
+      @path[0..-2].each do |k|
+        data = data[k] ||= {}
+      end
+      data[@path[-1]] = value
+    end
+    
+    def validate_fields
+    end
+
     def rb_boolean_value
       raise FormError, "field #{@name.inspect} does not have a boolean value"
     end
@@ -47,14 +76,41 @@ module RFormation
     
   end
   
+  class ElementListPart
+    
+    def rb_string_value
+      elements.each do |el|
+        return el.rb_string_value
+      end
+      result = "nil"
+      conditions.to_a.reverse.each do |cond, element|
+        result = "(%s ? %s : %s)" % [cond.rb_condition, element.rb_string_value, result]
+      end
+      result
+    end
+    
+    def rb_boolean_value
+      elements.each do |el|
+        return el.rb_boolean_value
+      end
+      result = "nil"
+      conditions.to_a.reverse.each do |cond, element|
+        result = "(%s ? %s : %s)" % [cond.rb_condition, element.rb_boolean_value, result]
+      end
+      result
+    end
+    
+  end
+  
   module Named
     
     def validate_fields
-      set_value_by_trail(fetch_value_by_trail)
+      super
+      set_value_by_path(fetch_value_by_path)
     end
     
     def rb_string_value
-      "get_value_by_trail(data, #{@object_trail.inspect}) || ''"
+      "get_value_by_path(data, #{@path.inspect}) || nil"
     end
     
   end
@@ -78,11 +134,12 @@ module RFormation
   class CheckBox
     
     def validate_fields
-      set_value_by_trail(!!fetch_value_by_trail)
+      super
+      set_value_by_path(!!fetch_value_by_path)
     end
     
     def rb_boolean_value
-      "!!get_value_by_trail(data, #{@object_trail.inspect})"
+      "!!get_value_by_path(data, #{@path.inspect})"
     end
     
     def rb_string_value
@@ -94,22 +151,27 @@ module RFormation
   class File
 
     def validate_fields
-      if d = fetch_value_by_trail and !d.is_a?(String)
+      super
+      if d = fetch_value_by_path and !d.is_a?(String)
         uploaded_data = d.read
         original_file_name = d.original_filename
         content_type = d.content_type
         size = uploaded_data.size
-        result[@name] = {
+        set_value_by_path({
           :data => uploaded_data,
           :original_file_name => original_file_name,
           :content_type => content_type,
           :file_size => size
-        }
+        })
         errors[@name] << "smaller than #{@min_size}" if @min_size && @min_size > size
         errors[@name] << "larger than #{@max_size}" if @max_size && @max_size < size
       else
-        result[@name] = nil
+        set_value_by_path(nil)
       end
+    end
+    
+    def rb_string_value
+      "(t = get_value_by_path(data, #{@path.inspect}) ; t ? t.read[0, 1] : '')"
     end
     
   end
@@ -141,6 +203,10 @@ module RFormation
       @rb_condition = @parsed_condition.to_rb
     end
     
+    def rb_condition
+      @rb_condition
+    end
+    
   end
   
   module ConditionAST
@@ -148,6 +214,7 @@ module RFormation
     class Root
 
       def to_rb
+        @condition = condition
         condition.to_rb
       end
 
@@ -156,6 +223,8 @@ module RFormation
     class Or
 
       def to_rb
+        @exp1 = exp1
+        @exp2 = exp2
         '(%s) || (%s)' % [exp1.to_rb, exp2.to_rb]
       end
 
@@ -164,6 +233,8 @@ module RFormation
     class And
 
       def to_rb
+        @exp1 = exp1
+        @exp2 = exp2
         '(%s) && (%s)' % [exp1.to_rb, exp2.to_rb]
       end
 
@@ -172,6 +243,7 @@ module RFormation
     class Not
 
       def to_rb
+        @exp = exp
         '!(%s)' % exp.to_rb
       end
 
@@ -180,7 +252,8 @@ module RFormation
     class Equals
 
       def to_rb
-        "(#{field.rb_string_value}) == #{value.inspect}"
+        @v = v
+        "(#{@field.rb_string_value}) == #{v.to_string.inspect}"
       end
 
     end
@@ -188,7 +261,8 @@ module RFormation
     class NotEquals
 
       def to_rb
-        "(#{field.rb_string_value}) != #{value.inspect}"
+        @v = v
+        "(#{@field.rb_string_value}) != #{v.to_string.inspect}"
       end
 
     end
@@ -196,7 +270,7 @@ module RFormation
     class IsOn
 
       def to_rb
-        field.rb_boolean_value
+        @field.rb_boolean_value
       end
 
     end
@@ -204,7 +278,7 @@ module RFormation
     class IsOff
 
       def to_rb
-        "!(#{field.rb_boolean_value})"
+        "!(#{@field.rb_boolean_value})"
       end
 
     end
@@ -212,7 +286,7 @@ module RFormation
     class IsEmpty
       
       def to_rb
-        "%s =~ (%s)" % [/\A\s*\z/.inspect, field.rb_string_value]
+        "%s =~ (%s)" % [/\A\s*\z/.inspect, @field.rb_string_value]
       end
       
     end
@@ -220,7 +294,7 @@ module RFormation
     class IsNotEmpty
       
       def to_rb
-        "%s !~ (%s)" % [/\A\s*\z/.inspect, field.rb_string_value]
+        "%s !~ (%s)" % [/\A\s*\z/.inspect, @field.rb_string_value]
       end
       
     end

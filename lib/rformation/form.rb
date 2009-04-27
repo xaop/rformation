@@ -46,49 +46,11 @@ module RFormation
     include Contextual
     
     def initialize(&blk)
-      @class = ""
       instance_eval(&blk)
     end
     
-    def register_element(element, name)
-      context[:form].register_element(element, name)
+    def propagate_sticky_classes
     end
-    
-    def register_resolver(&resolver)
-      context[:form].register_resolver(&resolver)
-    end
-    
-    def fetch_value_by_trail
-      get_value_by_trail(context[:data], @object_trail)
-    end
-    
-    def get_value_by_trail(data, trail)
-      res = data
-      trail.each do |k|
-        if res.is_a?(Hash)
-          return nil unless res.has_key?(k)
-          res = res[k]
-        else
-          return nil unless res.respond_to?(k)
-          res = res.send(k)
-        end
-      end
-      res
-    end
-    
-    def set_value_by_trail(value)
-      data = context[:result]
-      @object_trail[0..-2].each do |k|
-        data = data[k] ||= {}
-      end
-      data[@object_trail[-1]] = value
-    end
-    
-    def field_class(*classes)
-      @class << " " << classes.join(" ")
-    end
-    
-    alias field_classes field_class
     
   end
   
@@ -96,9 +58,13 @@ module RFormation
   # Form, Group and Condition.
   class ContainerElement < Element
     
-    def initialize(*a)
+    def initialize
       @items = []
       super
+    end
+    
+    def propagate_sticky_classes
+      @items.each { |item| item.propagate_sticky_classes }
     end
     
   end
@@ -113,10 +79,37 @@ module RFormation
     }
   end
   
+  # Module for anything for which the class can be set
+  module Classy
+    
+    def initialize(&blk)
+      @sticky_classes = {}
+      @class = ""
+      super
+    end
+    
+    def field_class(*classes)
+      sticky, regular = classes.partition { |cl| Hash === cl }
+      @class << " " << regular.join(" ")
+      sticky.each { |cls| @sticky_classes.merge!(cls) }
+    end
+    
+    alias field_classes field_class
+    
+    def propagate_sticky_classes
+      sticky = context[:sticky_classes].merge(@sticky_classes)
+      @class << " " << sticky.values.flatten.join(" ")
+      with_context :sticky_classes => sticky do
+        super
+      end
+    end
+    
+  end
+  
   # Module for anything that can have a label.
   module Labeled
     
-    def initialize(*a)
+    def initialize
       @label = @name
       super
     end
@@ -128,19 +121,21 @@ module RFormation
     
   end
   
-  # Module for anything that can have a name. These elements
-  # need to be registered because they can be referred to in
-  # conditions and validations.
+  # Module for anything that can have a name.
   module Named
     
-    def initialize(*a)
-      super
-      @object_trail = ((context[:object_trail] || []) + [@name])
-      if prefix = context[:object_prefix]
-        @name = "#{prefix}[#{@name}]"
+    def initialize(name)
+      @name = name
+      @path = Named.name_to_trail(name, context[:object_scope])
+      super()
+    end
+    
+    def self.name_to_trail(name, object_scope)
+      if name[0] == ?&
+        name = name[1..-1]
+        absolute = true
       end
-      @name = @name + "[]" if @multivalue
-      @id, @variable = register_element(self, @name)
+      (absolute ? [] : object_scope) + name.split(/&/)
     end
     
   end
@@ -148,35 +143,11 @@ module RFormation
   # Module for anything that can have validations.
   module Validated
     
-    def initialize(*a)
+    def initialize
       @validations = []
       @error_messages = []
       @parsed_validations = []
-      @object_trail_context = context[:object_trail]
-      @object_trail_root = context[:object_trail_root]
       super
-      register_resolver do
-        begin
-          fields_of_interest = []
-          with_context :object_trail => @object_trail_context, :object_trail_root => @object_trail_root do
-            @parsed_validations.each do |parsed_validation|
-              fields_of_interest.concat(parsed_validation.resolve)
-            end
-          end
-          fields_of_interest.uniq!
-          @actor_index = context[:actor2els].size
-          context[:actor2els][self] = fields_of_interest unless fields_of_interest.empty?
-          methods.each do |m|
-            if /\Atranslate_validations_to_/ === m
-              send(m)
-            end
-          end
-          @parsed_validations = nil
-        rescue FormError => e
-          e.line_number = @line_number
-          raise
-        end
-      end
     end
     
     def validate(condition, error_message = nil)
@@ -195,15 +166,9 @@ module RFormation
   
   module Requirable
     
-    def initialize(&blk)
-      @mandatory = false
-      @mandatory_message = "is mandatory"
-      super
-      validate("%s is not empty" % RFormation::ConditionAST::String.escape_back_string_syntax(@name), @mandatory_message) if @mandatory
-    end
-    
-    def mandatory
+    def mandatory(message = "is mandatory")
       @mandatory = true
+      validate("%s is not empty" % RFormation::ConditionAST::String.escape_back_string_syntax(@name), message)
     end
     
   end
@@ -236,11 +201,13 @@ module RFormation
       end
       lists_of_values = options.delete(:lists_of_values) || proc {}
       filename = options.delete(:filename) || "FORM_DSL"
+      classes = options.delete(:element_classes) || {}
+      if style = options.delete(:style)
+        classes[:style] = style
+      end
       options.empty? or raise "unknown options #{options.keys.join(", ")}"
       
-      @elements = {}
-      @resolvers = []
-      with_context(:lists_of_values => lists_of_values, :form => self) do
+      with_context(:lists_of_values => lists_of_values, :object_scope => []) do
         super() do
           if str
             eval_string(str)
@@ -249,45 +216,33 @@ module RFormation
           end
         end
       end
-      @actor2els = {}
-      with_context :actor2els => @actor2els, :elements => @elements do
-        @resolvers.each { |resolver| resolver.call }
+      
+      with_context(:sticky_classes => classes) do
+        propagate_sticky_classes
       end
-      @resolvers = nil
-    # rescue FormError => e
-    #   # To generate a cleaner backtrace
-    #   raise FormError.new(e.message, e.line_number)
+      resolve_form_references
+    rescue FormError => e
+      # To generate a cleaner backtrace
+      raise FormError.new(e.message, e.line_number)
     end
 
-    def register_element(element, name)
-      i = @elements.length + 1
-      id = "rformationElement#{i}"
-      variable = "rformationElement#{i}"
-      @elements[name] = [element, variable]
-      [id, variable]
-    end
-    
-    def register_resolver(&resolver)
-      @resolvers << resolver
-    end
-    
   private
 
     def eval_string(str)
       eval str, nil, "FORM_DSL", 1
-    # rescue Exception => e
-    #   # Raise a more readable error message containing a line number.
-    #   # Always raises a FormError no matter what specific error
-    #   # happened, but it does retain the message.
-    #   if NoMethodError === e || NameError === e
-    #     message = "unknown keyword #{e.name}"
-    #   else
-    #     message = e.message.dup
-    #   end
-    #   line_number = FormError.extract_line_number(e.backtrace)
-    #   error = FormError.new(message)
-    #   error.line_number = line_number
-    #   raise error
+    rescue Exception => e
+      # Raise a more readable error message containing a line number.
+      # Always raises a FormError no matter what specific error
+      # happened, but it does retain the message.
+      if NameError === e
+        message = "unknown keyword #{e.name}"
+      else
+        message = e.message.dup
+      end
+      line_number = FormError.extract_line_number(e.backtrace)
+      error = FormError.new(message)
+      error.line_number = line_number
+      raise error
     end
     
   end
@@ -295,9 +250,18 @@ module RFormation
   # A group with a caption
   class Group < ContainerElement
 
+    include Classy
+
     def initialize(caption, &blk)
       @caption = caption
+      @styled = false
       super(&blk)
+    end
+    
+    def style(style)
+      raise FormError, "duplicate style specification" if @styled
+      @styled = true
+      field_class(:style => style)
     end
     
   end
@@ -307,10 +271,11 @@ module RFormation
   # The generic subclass of drop-down select boxes and groups of radio buttons
   class Select < Element
     
-    include Named
+    include Classy
     include Validated
     include Labeled
     include Requirable
+    include Named
     
     # TODO: clean this up somewhat. I like the way it is set up now
     #       with the singleton methods because now it explicitly says
@@ -320,7 +285,6 @@ module RFormation
     def initialize(name, *a, &blk)
       @type = a.delete(:auto_number) || a.delete(:identity) || a.delete(:auto_id) || a.delete(:self)
       a.empty? or raise FormError, "unknown options #{a.inspect}"
-      @name = name
       @entries = []
       @has_id = {}
       @generator = nil
@@ -377,7 +341,7 @@ module RFormation
       else
         raise FormError, "illegal specifier #{type.inspect} for id generation (should be one of :auto_number, :auto_id, :self)"
       end
-      super(&blk)
+      super(name, &blk)
     end
     
     def entries(lists_of_values)
@@ -406,17 +370,47 @@ module RFormation
   # An option turns it into a multi-line text field = a text area.
   class Text < Element
     
-    include Named
+    SMALL_WIDTH = 20
+    SMALL_HEIGHT = 3
+    
+    MEDIUM_WIDTH = 35
+    MEDIUM_HEIGHT = 7
+    
+    LARGE_WIDTH = 50
+    LARGE_HEIGHT = 15
+    
+    include Classy
     include Validated
     include Labeled
     include Requirable
+    include Named
     
     def initialize(name, *a, &blk)
-      @multi = a.delete(:multi)
+      if @multi = a.delete(:multi)
+        def self.width(width)
+          @width = width
+          def self.width(*a) ; raise FormError, "specified a width twice" ; end
+        end
+        def self.height(height)
+          @height = height
+          def self.height(*a) ; raise FormError, "specified a height twice" ; end
+        end
+        def self.small
+          width(SMALL_WIDTH)
+          height(SMALL_HEIGHT)
+        end
+        def self.medium
+          width(MEDIUM_WIDTH)
+          height(MEDIUM_HEIGHT)
+        end
+        def self.large
+          width(LARGE_WIDTH)
+          height(LARGE_HEIGHT)
+        end
+      end
       a.empty? or raise FormError, "unknown options #{a.inspect}"
-      @name = name
       @value = nil
-      super(&(blk || proc {}))
+      super(name, &(blk || proc {}))
     end
     
     def value(value)
@@ -431,14 +425,14 @@ module RFormation
   # File upload field
   class File < Element
     
-    include Named
+    include Classy
     include Validated
     include Labeled
     include Requirable
+    include Named
     
     def initialize(name, &blk)
-      @name = name
-      super(&(blk || proc {}))
+      super(name, &(blk || proc {}))
     end
     
     def min_size(min_size)
@@ -454,8 +448,8 @@ module RFormation
     def parse_size(size)
       if Integer === size
         size
-      elsif /\A(\d+)(kb?|mb?|gb?)\z/i === size
-        multiplier = { "kb" => 2**10, "mb" => 2**20, "gb" => 2**30, "k" => 2**10, "m" => 2**20, "g" => 2**30 }[$2]
+      elsif /\A(\d+)(|kb?|mb?|gb?)\z/i === size
+        multiplier = { "" => 1, "kb" => 2**10, "mb" => 2**20, "gb" => 2**30, "k" => 2**10, "m" => 2**20, "g" => 2**30 }[$2]
         $1.to_i * multiplier
       else
         raise FormError, "unrecognize file size"
@@ -469,6 +463,8 @@ module RFormation
   # A field that just displays some informative text.
   class Info < Element
     
+    include Classy
+
     def initialize(text)
       @text = text
       super() {}
@@ -481,6 +477,7 @@ module RFormation
   # Insert a link to for instance more information
   class Link < Element
     
+    include Classy
     include Labeled
 
     def initialize(url, &blk)
@@ -495,15 +492,15 @@ module RFormation
   # A checkbox
   class CheckBox < Element
     
-    include Named
+    include Classy
     include Validated
     include Labeled
     include Requirable
+    include Named
     
     def initialize(name, &blk)
-      @name = name
       @on_by_default = nil
-      super(&(blk || proc {}))
+      super(name, &(blk || proc {}))
     end
     
     # These two methods are there for convenience so you can say "default on"
@@ -521,6 +518,11 @@ module RFormation
       def self.default(*a) ; raise FormError, "specified default state twice" ; end
     end
     
+    def mandatory(message = "is mandatory")
+      @mandatory = true
+      validate("%s is on" % RFormation::ConditionAST::String.escape_back_string_syntax(@name), message)
+    end
+    
   end
   
   register_type :box, CheckBox
@@ -530,31 +532,19 @@ module RFormation
     include Named
     
     def initialize(name, value, &blk)
-      @name = name
       @value = value
-      super() {}
+      super(name) {}
     end
     
-    def js_setup_for_element(actors)
-      # Nothing to do as a hidden field normally should not change value.
-    end
-
   end
   
   register_type :hidden, Hidden
   
   class Object < ContainerElement
     
-    def initialize(name, *options, &blk)
-      @root = options.delete(:root)
-      fix = options.delete(:fix)
-      @name = name
-      old_object_prefix = context[:object_prefix]
-      old_object_trail = context[:object_trail] || []
-      object_prefix = (@root || !old_object_prefix) ? name : "#{old_object_prefix}[#{name}]"
-      object_trail = (old_object_trail << name)
-      object_trail_root = fix ? object_trail.dup : context[:object_trail_root]
-      with_context(:object_prefix => object_prefix, :object_trail => object_trail, :object_trail_root => object_trail_root) do
+    def initialize(name, &blk)
+      @path = Named.name_to_trail(name, context[:object_scope])
+      with_context(:object_scope => @path) do
         super(&blk)
       end
     end
@@ -569,8 +559,6 @@ module RFormation
     def initialize(condition, &blk)
       @condition = condition
       @line_number = FormError.extract_line_number(caller)
-      @object_trail_context = context[:object_trail]
-      @object_trail_root = context[:object_trail_root]
       
       parser = ConditionParser.new
       unless @parsed_condition = parser.parse(@condition)
@@ -578,23 +566,6 @@ module RFormation
       end
 
       super(&blk)
-      register_resolver do
-        begin
-          with_context :object_trail => @object_trail_context, :object_trail_root => @object_trail_root do
-            context[:actor2els][self] = @parsed_condition.resolve
-          end
-          @actor_index = context[:actor2els].size - 1
-          methods.each do |m|
-            if /\Atranslate_condition_to_/ === m
-              send(m)
-            end
-          end
-          @parsed_condition = nil
-        rescue FormError => e
-          e.line_number = @line_number
-          raise
-        end
-      end
     end
     
   end
@@ -613,4 +584,29 @@ module RFormation
     
   end
 
+end
+
+__END__
+
+text "a" do
+  mandatory
+end
+condition "a equals 1" do
+  text "b"
+  condition "b equals 2" do
+    group "group" do
+      text "c"
+      condition "c equals 3" do
+        text "d"
+      end
+    end
+  end
+end
+box "e"
+condition "d equals 4 and e is on" do
+  radio "f" do
+    value "a"
+    value "b"
+    value "c"
+  end
 end
