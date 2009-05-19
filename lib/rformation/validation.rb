@@ -152,7 +152,7 @@ module RFormation
 
     def validate_fields
       super
-      if d = fetch_value_by_path and !d.is_a?(String)
+      if d = fetch_value_by_path and !d.is_a?(::String)
         uploaded_data = d.read
         original_file_name = d.original_filename
         content_type = d.content_type
@@ -171,7 +171,7 @@ module RFormation
     end
     
     def rb_string_value
-      "(t = get_value_by_path(data, #{@path.inspect}) ; t ? t.read[0, 1] : '')"
+      "(t = get_value_by_path(data, #{@path.inspect}) ; t && !t.is_a?(::String) ? t.read[0, 1] : '')"
     end
     
   end
