@@ -257,7 +257,7 @@ module RFormation
     def js_element_references
       @container_variable = @container_id
       @label_variable = "#{@container_variable}_label"
-      label_var = (!@validations || @validations.empty?) ? [] : "var #{@label_variable} = document.getElementById(#{@label_id.inspect});"
+      label_var = (!@parsed_validations || @parsed_validations.empty?) ? [] : "var #{@label_variable} = document.getElementById(#{@label_id.inspect});"
       [
         "var #{@container_variable} = document.getElementById(#{@container_id.inspect});",
         label_var,
