@@ -8,8 +8,12 @@ module RFormation
         collect_elements
       end
       @notifier_map = {}
-      with_context :elements => elements, :object_scopes => [], :notifier_map => @notifier_map do
+      to_translate = []
+      with_context :elements => elements, :object_scopes => [], :notifier_map => @notifier_map, :to_translate => to_translate do
         resolve_references
+      end
+      to_translate.each do |el, m|
+        el.send(m)
       end
       elements.each do |path, element_list|
         element_list.register_notifiers(@notifier_map)
@@ -94,7 +98,8 @@ module RFormation
         (context[:notifier_map][e] ||= []) << self
       end
       methods.grep(/\Atranslate_validations_to_/).each do |m|
-        send(m)
+        # send(m)
+        context[:to_translate] << [self, m]
       end
     end
     
@@ -127,7 +132,8 @@ module RFormation
         (context[:notifier_map][e] ||= []) << self
       end
       methods.grep(/\Atranslate_condition_to_/).each do |m|
-        send(m)
+        # send(m)
+        context[:to_translate] << [self, m]
       end
       super
     end

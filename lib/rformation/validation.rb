@@ -200,11 +200,17 @@ module RFormation
     end
     
     def translate_condition_to_rb
-      @rb_condition = @parsed_condition.to_rb
+      rb_condition
     end
     
     def rb_condition
-      @rb_condition
+      @rb_condition ||= begin
+        raise FormError, "cycle detected in conditions" if @in_translation
+        @in_translation = true
+        res = @parsed_condition.to_rb
+        @in_translation = false
+        res
+      end
     end
     
   end
