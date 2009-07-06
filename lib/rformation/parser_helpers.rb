@@ -91,5 +91,8 @@ module RFormation::ConditionAST
   
   class IsNotEmpty < Node
   end
+  
+  class Parentheses < Node
+  end
 
 end

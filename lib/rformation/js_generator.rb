@@ -692,6 +692,14 @@ module RFormation
 
     end
   
+    # class Parentheses
+    #   
+    #   def to_js
+    #     @condition.to_js
+    #   end
+    #   
+    # end
+    #   
     class Not
 
       def to_js
@@ -744,6 +752,14 @@ module RFormation
       
       def to_js
         "!(#{@field.js_string_value}).match(new RegExp('^\s*$'))"
+      end
+      
+    end
+    
+    class Parentheses
+      
+      def to_js
+        @condition.to_js
       end
       
     end

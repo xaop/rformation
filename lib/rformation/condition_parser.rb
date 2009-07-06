@@ -1,4 +1,4 @@
-module RFormation::Condition
+module Condition
   include Treetop::Runtime
 
   def root
@@ -1157,7 +1157,7 @@ module RFormation::Condition
 
 end
 
-class RFormation::ConditionParser < Treetop::Runtime::CompiledParser
-  include RFormation::Condition
+class ConditionParser < Treetop::Runtime::CompiledParser
+  include Condition
 end
 

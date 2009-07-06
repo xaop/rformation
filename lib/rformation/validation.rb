@@ -304,6 +304,14 @@ module RFormation
       end
       
     end
+    
+    class Parentheses
+      
+      def to_rb
+        @condition.to_rb
+      end
+      
+    end
 
   end
 
