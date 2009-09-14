@@ -71,7 +71,7 @@ module RFormation
   module Validated
     
     def html_update_mandatory_labels
-      @label = "* " + @label if @mandatory
+      @label = "* " + @label if @mandatory && @label[0, 2] != "* "
     end
 
   end
