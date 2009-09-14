@@ -2,10 +2,11 @@ module RFormation
 
   class ValidationError < ::Exception
     
-    attr_reader :errors
+    attr_reader :errors, :data
     
-    def initialize(errors)
+    def initialize(errors, data)
       @errors = errors
+      @data = data
       super(errors.map { |field, error| "%s : %s" % [field, error.join(', ')] }.join("; "))
     end
     
@@ -19,7 +20,7 @@ module RFormation
       with_context :data => data, :result => result, :errors => errors do
         validate_fields
       end
-      raise ValidationError, errors unless errors.empty?
+      raise ValidationError.new(errors, result) unless errors.empty?
       result
     end
     
