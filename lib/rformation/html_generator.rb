@@ -116,7 +116,8 @@ module RFormation
       with_context :group_level => level do
         H {%{
           %fieldset{ :class => @class + " level#{level}", :id => @id }
-            %legend= h @caption
+            - unless @caption.to_s.strip.empty?
+              %legend= h @caption
             - @items.each do |item|
               = item.to_html
         }}
