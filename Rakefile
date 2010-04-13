@@ -10,7 +10,7 @@ spec = Gem::Specification.new do |s|
   s.version = PKG_VERSION
   s.require_path = 'lib'
   s.files = Dir["lib/rformation/*.rb"] + %w[README VERSION lib/rformation.rb]
-  s.add_dependency("nokogiri")
+  s.add_dependency("treetop")
   s.description = <<-EOF
     A DSL to generate dynamic HTML forms with client and server side validations.
   EOF
