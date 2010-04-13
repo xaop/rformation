@@ -10,9 +10,9 @@ spec = Gem::Specification.new do |s|
   s.version = PKG_VERSION
   s.require_path = 'lib'
   s.files = Dir["lib/rformation/*.rb"] + %w[README VERSION lib/rformation.rb]
+  s.add_dependency("nokogiri")
   s.description = <<-EOF
-    A DSL to generate HTML forms. Beats the crap out of Rails form helpers,
-    and can, nay should, be used as a replacement for the Rails helpers.
+    A DSL to generate dynamic HTML forms with client and server side validations.
   EOF
 end
 

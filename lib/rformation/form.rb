@@ -252,7 +252,7 @@ module RFormation
 
     include Classy
 
-    def initialize(caption, &blk)
+    def initialize(caption = "", &blk)
       @caption = caption
       @styled = false
       super(&blk)
