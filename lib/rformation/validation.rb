@@ -172,7 +172,7 @@ module RFormation
     end
     
     def rb_string_value
-      "(t = get_value_by_path(data, #{@path.inspect}) ; t && !t.is_a?(::String) ? ' ' : '')"
+      "(t = get_value_by_path(data, #{@path.inspect}) ; t && !t.is_a?(::String) ? 'non-empty string' : '')"
     end
     
   end
